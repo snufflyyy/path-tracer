@@ -11,7 +11,7 @@ typedef struct Window {
   GLFWwindow* glfw_window;
 } Window;
 
-Window window_create(u32 width, u32 height, const char* title);
+Window* window_create(u32 width, u32 height, const char* title);
 bool window_is_running(Window* window);
 void window_update(Window* window);
 void window_clear(Window* window);

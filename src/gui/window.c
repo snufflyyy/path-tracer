@@ -1,6 +1,7 @@
 #include "gui/window.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -11,32 +12,50 @@
 
 #include "types/base_types.h"
 
-Window window_create(u32 width, u32 height, const char* title) {
+static void window_resize_callback(GLFWwindow* window, int width, int height) {
+  Window* window_struct = (Window*) glfwGetWindowUserPointer(window);
+  glViewport(0, 0, width, height);
+}
+
+Window* window_create(u32 width, u32 height, const char* title) {
   if (!glfwInit()) {
     fprintf(stderr, "[ERROR] [GLFW] Failed to initialize GLFW!\n");
-    return (Window) {0};
+    return NULL;
+  }
+
+  Window* window = (Window*) malloc(sizeof(Window));
+  if (!window) {
+    fprintf(stderr, "[ERROR] [WINDOW] Failed to allocate memory for window!\n");
+    glfwTerminate();
+    return NULL;
   }
 
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-#ifdef __APPLE__
-  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-  glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GL_FALSE);
-#endif
+  #ifdef __APPLE__
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GL_FALSE);
+  #endif
 
   glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-  GLFWwindow* window = glfwCreateWindow(width, height, title, NULL, NULL);
-  if (!window) {
+  window->glfw_window = glfwCreateWindow(width, height, title, NULL, NULL);
+  if (!window->glfw_window) {
     fprintf(stderr, "[ERROR] [GLFW] [WINDOW] Failed to create GLFW window!\n");
-    return (Window) {0};
+    glfwTerminate();
+    return NULL;
   }
-  glfwMakeContextCurrent(window);
+  glfwMakeContextCurrent(window->glfw_window);
+
+  glfwSetWindowUserPointer(window->glfw_window, (void*) window);
+  glfwSetFramebufferSizeCallback(window->glfw_window, window_resize_callback);
 
   if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
     fprintf(stderr, "[ERROR] [GLAD] Failed to load OpenGL!\n");
-    return (Window) {0};
+    glfwDestroyWindow(window->glfw_window);
+    glfwTerminate();
+    return NULL;
   }
 
   glViewport(0, 0, width, height);
@@ -45,10 +64,10 @@ Window window_create(u32 width, u32 height, const char* title) {
   igCreateContext(NULL);
 
   ImGuiIO* imgui_io = igGetIO_Nil();
-  ImGui_ImplGlfw_InitForOpenGL(window, true);
+  ImGui_ImplGlfw_InitForOpenGL(window->glfw_window, true);
   ImGui_ImplOpenGL3_Init("#version 330");
 
-  return (Window) { window };
+  return window;
 }
 
 bool window_is_running(Window* window) {
@@ -81,5 +100,8 @@ void window_destroy(Window *window) {
   igDestroyContext(NULL);
 
   glfwDestroyWindow(window->glfw_window);
+
+  free(window);
+
   glfwTerminate();
 }

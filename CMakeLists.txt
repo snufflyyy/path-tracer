@@ -4,6 +4,7 @@ project(PathTracer)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(OpenGL REQUIRED)
+find_package(X11 REQUIRED)
 
 add_library(glad external/glad/src/glad.c)
 target_include_directories(glad PUBLIC external/glad/include)
@@ -26,11 +27,20 @@ add_executable(
   src/main.c
   src/types/color.c
   src/image.c
+  src/viewport.c
   src/camera.c
 
+  src/math/vector3.c
+  src/math/ray.c
+  src/math/sphere.c
+
+  src/gui/gui.c
   src/gui/utils/file.c
   src/gui/window.c
   src/gui/shader.c
+  src/gui/texture.c
+  src/gui/quad.c
+  src/gui/sprite.c
 
   external/cimgui/imgui/backends/imgui_impl_glfw.cpp
   external/cimgui/imgui/backends/imgui_impl_opengl3.cpp
@@ -42,5 +52,5 @@ include_directories(
 )
 
 target_compile_definitions(${PROJECT_NAME} PUBLIC -DCIMGUI_USE_OPENGL3 -DCIMGUI_USE_GLFW)
-target_link_libraries(${PROJECT_NAME} PRIVATE glad glfw OpenGL::GL cimgui)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${X11_LIBRARIES} glfw ${OpenGL_LIBRARIES} glad cimgui)
 
