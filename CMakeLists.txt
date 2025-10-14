@@ -13,8 +13,6 @@ set(GLFW_BUILD_EXAMPLES OFF)
 set(GLFW_BUILD_TESTS OFF)
 add_subdirectory(external/glfw)
 
-set(CIMGUI_USE_GLFW)
-set(CIMGUI_USE_OPENGL3)
 add_subdirectory(external/cimgui)
 target_include_directories(cimgui PUBLIC
   external/cimgui
@@ -28,6 +26,14 @@ add_executable(
   src/main.c
   src/types/color.c
   src/image.c
+  src/camera.c
+
+  src/gui/utils/file.c
+  src/gui/window.c
+  src/gui/shader.c
+
+  external/cimgui/imgui/backends/imgui_impl_glfw.cpp
+  external/cimgui/imgui/backends/imgui_impl_opengl3.cpp
 )
 
 include_directories(
@@ -35,5 +41,6 @@ include_directories(
   external/stb_image_write/include
 )
 
+target_compile_definitions(${PROJECT_NAME} PUBLIC -DCIMGUI_USE_OPENGL3 -DCIMGUI_USE_GLFW)
 target_link_libraries(${PROJECT_NAME} PRIVATE glad glfw OpenGL::GL cimgui)
 
