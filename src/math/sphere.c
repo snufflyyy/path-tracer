@@ -13,7 +13,7 @@ RayHit sphere_ray_hit(Sphere* sphere, Ray* ray) {
   f32 c = vector3_length_squared(oc) - (sphere->radius * sphere->radius);
   f32 discriminant = (h * h) - (a * c);
 
-  if (discriminant < 0.0f) {
+  if (discriminant < 0.001f) {
     return (RayHit) {0};
   }
 
@@ -24,7 +24,7 @@ RayHit sphere_ray_hit(Sphere* sphere, Ray* ray) {
     .t = t,
     .hit_position = ray_at(ray, t),
     .normal = vector3_normalized(vector3_subtract(rayhit.hit_position, sphere->position)),
-    .color = (Color) { 0.5f, 0.5f, 0.5f }
+    .color = (Color) { 0.75f, 0.75f, 0.75f }
   };
 
   return rayhit;

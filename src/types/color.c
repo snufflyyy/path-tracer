@@ -1,5 +1,7 @@
 #include "types/color.h"
 
+#include <math.h>
+
 inline Color color_add(Color a, Color b) {
   return (Color) { (a.red + b.red), (a.green + b.green), (a.blue + b.blue) };
 }

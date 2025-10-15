@@ -34,7 +34,6 @@ void gui_update(GUI* gui, Camera* camera) {
   window_update(gui->window);
 
   for (usize i = 0; i < camera->width * camera->height; i++) {
-    camera->framebuffer[i] = color_divide_by_scalar(camera->framebuffer[i], camera->frame_count);
     gui->framebufferRGB[i] = color_convert_to_rgb(camera->framebuffer[i]);
   }
   texture_set_colorRGB_buffer(gui->sprite.texture, gui->framebufferRGB, camera->width, camera->height);

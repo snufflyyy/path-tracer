@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <float.h>
+#include <string.h>
 
 #include "math/sphere.h"
 #include "math/vector3.h"
@@ -13,8 +14,8 @@
 #include "world.h"
 
 static Color cast_ray(Ray ray, World* world, u32 bounce_count) {
-  if (bounce_count >= RAY_MAX_BOUNCES) {
-    return (Color) { 0.0f };
+  if (bounce_count + 1 >= RAY_MAX_BOUNCES) {
+    return (Color) { 0.0f, 0.0f, 0.0f };
   }
 
   RayHit closest_hit = {0};
@@ -22,14 +23,15 @@ static Color cast_ray(Ray ray, World* world, u32 bounce_count) {
 
   for (usize i = 0; i < world->sphere_count; i++) {
     RayHit rayhit = sphere_ray_hit(&world->spheres[i], &ray);
-    if (rayhit.hit && rayhit.t < closest_t) {
-      closest_t = rayhit.t;
+    if (rayhit.hit) {
       closest_hit = rayhit;
+      closest_t = rayhit.t;
     }
   }
 
   if (closest_hit.hit) {
-    return color_mulitply(closest_hit.color, cast_ray((Ray) { closest_hit.hit_position, vector3_normalized(vector3_random_in_hemisphere(closest_hit.normal)) }, world, bounce_count + 1));
+    Ray new_ray = (Ray) { closest_hit.hit_position, vector3_random_in_hemisphere(closest_hit.normal) };
+    return color_mulitply(closest_hit.color, cast_ray(new_ray, world, bounce_count + 1));
   }
 
   return (Color) { 0.5f, 0.7f, 0.9f };
@@ -55,12 +57,13 @@ Camera camera_create(u32 width, u32 height) {
 }
 
 void camera_render(Camera* camera, World* world) {
-  camera->frame_count++;
+  memset(camera->framebuffer, 0, camera->width * camera->height);
+
   for (usize y = 0; y < camera->height; y++) {
     for (usize x = 0; x < camera->width; x++) {
       usize i = y * camera->width + x;
-      Vector3 direction = (Vector3) { camera->viewport.first_pixel.x + (camera->viewport.pixel_delta.x * x), camera->viewport.first_pixel.y + (camera->viewport.pixel_delta.y * y), camera->focal_length };
-      camera->framebuffer[i] = color_add(camera->framebuffer[i], cast_ray((Ray) { camera->position, vector3_normalized(direction) }, world, 0));
+      Vector3 direction = vector3_normalized((Vector3) { camera->viewport.first_pixel.x + (camera->viewport.pixel_delta.x * x), camera->viewport.first_pixel.y + (camera->viewport.pixel_delta.y * y), camera->focal_length });
+      camera->framebuffer[i] = cast_ray((Ray) { camera->position, direction }, world, 0);
     }
   }
 }
