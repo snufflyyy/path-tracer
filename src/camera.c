@@ -2,21 +2,37 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <float.h>
 
 #include "math/sphere.h"
 #include "math/vector3.h"
+#include "rayhit.h"
 #include "types/base_types.h"
 #include "types/color.h"
 #include "viewport.h"
+#include "world.h"
 
-static Color camera_cast_ray(Ray ray) {
-  Sphere temp_sphere = { (Vector3) { 0.0f, 0.0f, -5.0f }, 1.0f };
-
-  if (sphere_ray_hit(&temp_sphere, &ray)) {
-    return (Color) { 0.0f, 0.5f, 1.0f, };
+static Color cast_ray(Ray ray, World* world, u32 bounce_count) {
+  if (bounce_count >= RAY_MAX_BOUNCES) {
+    return (Color) { 0.0f };
   }
 
-  return (Color) { 0.0f, 0.0f, 0.0f };
+  RayHit closest_hit = {0};
+  f32 closest_t = FLT_MAX;
+
+  for (usize i = 0; i < world->sphere_count; i++) {
+    RayHit rayhit = sphere_ray_hit(&world->spheres[i], &ray);
+    if (rayhit.hit && rayhit.t < closest_t) {
+      closest_t = rayhit.t;
+      closest_hit = rayhit;
+    }
+  }
+
+  if (closest_hit.hit) {
+    return color_mulitply(closest_hit.color, cast_ray((Ray) { closest_hit.hit_position, vector3_normalized(vector3_random_in_hemisphere(closest_hit.normal)) }, world, bounce_count + 1));
+  }
+
+  return (Color) { 0.5f, 0.7f, 0.9f };
 }
 
 Camera camera_create(u32 width, u32 height) {
@@ -38,11 +54,13 @@ Camera camera_create(u32 width, u32 height) {
   return camera;
 }
 
-void camera_render(Camera* camera) {
+void camera_render(Camera* camera, World* world) {
+  camera->frame_count++;
   for (usize y = 0; y < camera->height; y++) {
     for (usize x = 0; x < camera->width; x++) {
+      usize i = y * camera->width + x;
       Vector3 direction = (Vector3) { camera->viewport.first_pixel.x + (camera->viewport.pixel_delta.x * x), camera->viewport.first_pixel.y + (camera->viewport.pixel_delta.y * y), camera->focal_length };
-      camera->framebuffer[y * camera->width + x] = camera_cast_ray((Ray) { camera->position, direction });
+      camera->framebuffer[i] = color_add(camera->framebuffer[i], cast_ray((Ray) { camera->position, vector3_normalized(direction) }, world, 0));
     }
   }
 }

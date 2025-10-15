@@ -1,11 +1,31 @@
+#include <math.h>
+#include <stdbool.h>
+
 #include "math/sphere.h"
+#include "math/ray.h"
+#include "math/vector3.h"
+#include "rayhit.h"
 
-bool sphere_ray_hit(Sphere* sphere, Ray* ray) {
+RayHit sphere_ray_hit(Sphere* sphere, Ray* ray) {
   Vector3 oc = vector3_subtract(sphere->position, ray->origin);
-  float a = vector3_dot_product(ray->direction, ray->direction);
-  float b = -2.0f * vector3_dot_product(ray->direction, oc);
-  float c = vector3_dot_product(oc, oc) - (sphere->radius * sphere->radius);
-  float discriminant = (b * b) - (4.0f * a * c);
+  f32 a = vector3_length_squared(ray->direction);
+  f32 h = vector3_dot_product(ray->direction, oc);
+  f32 c = vector3_length_squared(oc) - (sphere->radius * sphere->radius);
+  f32 discriminant = (h * h) - (a * c);
 
-  return (discriminant >= 0);
+  if (discriminant < 0.0f) {
+    return (RayHit) {0};
+  }
+
+  f32 t = (h - sqrt(discriminant)) / a;
+
+  RayHit rayhit = {
+    .hit = true,
+    .t = t,
+    .hit_position = ray_at(ray, t),
+    .normal = vector3_normalized(vector3_subtract(rayhit.hit_position, sphere->position)),
+    .color = (Color) { 0.5f, 0.5f, 0.5f }
+  };
+
+  return rayhit;
 }

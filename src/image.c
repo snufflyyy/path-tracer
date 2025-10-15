@@ -16,7 +16,7 @@ void image_create(const char* filename, Color* framebuffer, u32 width, u32 heigh
   }
 
   for (usize i = 0; i < framebuffer_length; i++) {
-    framebufferRGB[i] = color_convert_to_rgb(&framebuffer[i]);
+    framebufferRGB[i] = color_convert_to_rgb(framebuffer[i]);
   }
 
   stbi_write_png(filename, width, height, 3, framebufferRGB, sizeof(ColorRGB));

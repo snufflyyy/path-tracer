@@ -10,4 +10,8 @@ typedef struct ColorRGB {
   u8 red, green, blue;
 } ColorRGB;
 
-ColorRGB color_convert_to_rgb(Color *color);
+Color color_add(Color a, Color b);
+Color color_mulitply(Color a, Color b);
+Color color_scale(Color a, f32 scalar);
+Color color_divide_by_scalar(Color a, f32 scalar);
+ColorRGB color_convert_to_rgb(Color color);

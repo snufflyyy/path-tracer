@@ -29,6 +29,7 @@ add_executable(
   src/image.c
   src/viewport.c
   src/camera.c
+  src/world.c
 
   src/math/vector3.c
   src/math/ray.c
