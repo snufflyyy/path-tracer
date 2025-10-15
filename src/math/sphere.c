@@ -17,13 +17,14 @@ RayHit sphere_ray_hit(Sphere* sphere, Ray* ray) {
     return (RayHit) {0};
   }
 
-  f32 t = (h - sqrt(discriminant)) / a;
+  f32 t = (h - sqrtf(discriminant)) / a;
+  Vector3 hit_position = ray_at(ray, t);
 
   RayHit rayhit = {
     .hit = true,
     .t = t,
-    .hit_position = ray_at(ray, t),
-    .normal = vector3_normalized(vector3_subtract(rayhit.hit_position, sphere->position)),
+    .hit_position = hit_position,
+    .normal = vector3_normalized(vector3_subtract(hit_position, sphere->position)),
     .color = (Color) { 0.75f, 0.75f, 0.75f }
   };
 

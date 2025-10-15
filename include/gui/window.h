@@ -17,4 +17,5 @@ void window_update(Window* window);
 void window_clear(Window* window);
 void window_imgui_begin_frame();
 void window_imgui_end_frame();
+void window_imgui_render();
 void window_destroy(Window* window);

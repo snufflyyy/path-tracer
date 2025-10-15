@@ -14,3 +14,6 @@ typedef int32_t s32;
 
 typedef float f32;
 typedef double f64;
+
+f32 random_f32();
+f32 random_f32_range(f32 min, f32 max);

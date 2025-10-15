@@ -15,6 +15,6 @@ typedef struct GUI {
 } GUI;
 
 GUI gui_create(u32 width, u32 height);
-void gui_update(GUI* gui, Camera* camera);
-void gui_render(GUI* gui, Camera* camera);
+void gui_update(GUI* gui, Camera* camera, World* world);
+void gui_render(GUI* gui, Color* framebuffer, u32 sample_count, u32 width, u32 height);
 void gui_destroy(GUI* gui);

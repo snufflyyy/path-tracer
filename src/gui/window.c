@@ -90,6 +90,10 @@ void window_imgui_begin_frame() {
 }
 
 void window_imgui_end_frame() {
+  igEndFrame();
+}
+
+void window_imgui_render() {
   igRender();
   ImGui_ImplOpenGL3_RenderDrawData(igGetDrawData());
 }

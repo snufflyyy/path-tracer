@@ -14,16 +14,16 @@
 #include "world.h"
 
 static Color cast_ray(Ray ray, World* world, u32 bounce_count) {
-  if (bounce_count + 1 >= RAY_MAX_BOUNCES) {
+  if (bounce_count + 1 >= world->max_ray_bounces) {
     return (Color) { 0.0f, 0.0f, 0.0f };
   }
 
   RayHit closest_hit = {0};
   f32 closest_t = FLT_MAX;
 
-  for (usize i = 0; i < world->sphere_count; i++) {
-    RayHit rayhit = sphere_ray_hit(&world->spheres[i], &ray);
-    if (rayhit.hit) {
+  for (usize i = 0; i < world->hittables_count; i++) {
+    RayHit rayhit = sphere_ray_hit(&world->hittables[i], &ray);
+    if (rayhit.hit && rayhit.t > 0.0f && rayhit.t < closest_t) {
       closest_hit = rayhit;
       closest_t = rayhit.t;
     }
@@ -34,7 +34,7 @@ static Color cast_ray(Ray ray, World* world, u32 bounce_count) {
     return color_mulitply(closest_hit.color, cast_ray(new_ray, world, bounce_count + 1));
   }
 
-  return (Color) { 0.5f, 0.7f, 0.9f };
+  return world->sky_color;
 }
 
 Camera camera_create(u32 width, u32 height) {
@@ -45,6 +45,8 @@ Camera camera_create(u32 width, u32 height) {
     fprintf(stderr, "[ERROR] [CAMERA] Failed to allocate memory for framebuffer!\n");
     return (Camera) {0};
   }
+  memset(camera.framebuffer, 0, sizeof(Color) * width * height);
+
   camera.width = width;
   camera.height = height;
 
@@ -56,14 +58,19 @@ Camera camera_create(u32 width, u32 height) {
   return camera;
 }
 
-void camera_render(Camera* camera, World* world) {
-  memset(camera->framebuffer, 0, camera->width * camera->height);
+void camera_clear_framebuffer(Camera* camera) {
+  memset(camera->framebuffer, 0, sizeof(Color) * camera->width * camera->height);
+  camera->sample_count = 0;
+}
 
+void camera_render(Camera* camera, World* world) {
   for (usize y = 0; y < camera->height; y++) {
     for (usize x = 0; x < camera->width; x++) {
       usize i = y * camera->width + x;
-      Vector3 direction = vector3_normalized((Vector3) { camera->viewport.first_pixel.x + (camera->viewport.pixel_delta.x * x), camera->viewport.first_pixel.y + (camera->viewport.pixel_delta.y * y), camera->focal_length });
-      camera->framebuffer[i] = cast_ray((Ray) { camera->position, direction }, world, 0);
+      Vector3 direction = (Vector3) { camera->viewport.first_pixel.x + (camera->viewport.pixel_delta.x * (x + (random_f32() - 0.5f))), camera->viewport.first_pixel.y + (camera->viewport.pixel_delta.y * (y + (random_f32() - 0.5f))), -camera->focal_length };
+      camera->framebuffer[i] = color_add(camera->framebuffer[i], cast_ray((Ray) { camera->position, direction }, world, 0));
     }
   }
+
+  camera->sample_count++;
 }

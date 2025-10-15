@@ -1,16 +1,11 @@
 #include "math/vector3.h"
 #include "types/base_types.h"
 
-#include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
 
 inline Vector3 vector3_random(f32 min, f32 max) {
-  return (Vector3) { 
-    .x = min + ((f32) rand() / RAND_MAX) * (max - min),
-    .y = min + ((f32) rand() / RAND_MAX) * (max - min),
-    .z = min + ((f32) rand() / RAND_MAX) * (max - min),
-  };
+  return (Vector3) { random_f32_range(min, max), random_f32_range(min, max), random_f32_range(min, max) };
 }
 
 Vector3 vector3_random_unit_vector() {

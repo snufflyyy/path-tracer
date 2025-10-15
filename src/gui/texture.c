@@ -6,7 +6,8 @@ Texture texture_create() {
   GLuint texture;
   glGenTextures(1, &texture);
 
-  texture_bind(texture);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, texture);
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -15,7 +16,6 @@ Texture texture_create() {
 }
 
 void texture_bind(Texture texture) {
-  glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, texture);
 }
 

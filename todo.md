@@ -7,3 +7,5 @@
  - it might be wise to just go fully into the imgui for everything, i could use imgui to display the framebuffer
  - fix image exporting
  - json config file
+ - mulitthreading / jobs system, or at least put the gui in its own thread
+ - clean up the #includes
