@@ -8,4 +8,4 @@ typedef struct Ray {
   Vector3 direction;
 } Ray;
 
-Vector3 ray_at(Ray* ray, f32 t);
+Vector3 ray_at(Ray ray, f32 t);

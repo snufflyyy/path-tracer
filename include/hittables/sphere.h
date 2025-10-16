@@ -1,0 +1,17 @@
+#pragma once
+
+#include "types/material.h"
+#include "math/vector3.h"
+#include "types/base_types.h"
+#include "hittables/hittable.h"
+
+typedef struct Sphere {
+  Hittable hittable;
+
+  Vector3 position;
+  f32 radius;
+
+  Material material;
+} Sphere;
+
+Sphere* sphere_create(Vector3 position, f32 radius, Material material);

@@ -6,15 +6,13 @@ typedef struct Vector3 {
   f32 x, y, z;
 } Vector3;
 
-Vector3 vector3_random(u64* state, f32 min, f32 max);
-Vector3 vector3_random_unit_vector(u64* state);
-Vector3 vector3_random_in_hemisphere(u64* state, Vector3 normal);
-
 Vector3 vector3_add(Vector3 a, Vector3 b);
 Vector3 vector3_subtract(Vector3 a, Vector3 b);
 Vector3 vector3_scale(Vector3 a, f32 scalar);
 
-Vector3 vector3_normalized(Vector3 a);
+Vector3 vector3_normalize(Vector3 a);
+Vector3 vector3_reflect(Vector3 a, Vector3 normal);
+
 f32 vector3_length(Vector3 a);
 f32 vector3_length_squared(Vector3 a);
 f32 vector3_dot_product(Vector3 a, Vector3 b);

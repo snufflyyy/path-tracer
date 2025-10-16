@@ -16,7 +16,3 @@ typedef int64_t s64;
 
 typedef float f32;
 typedef double f64;
-
-u32 pcg32(u64* state);
-f32 random_f32(u64* state);
-f32 random_f32_range(u64* state, f32 min, f32 max);

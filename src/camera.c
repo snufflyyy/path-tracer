@@ -1,23 +1,22 @@
 #include "camera.h"
 
-#include <pthread.h>
+#include <float.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <float.h>
 #include <string.h>
-#include <time.h>
+#include <pthread.h>
 
-#include "math/sphere.h"
 #include "math/vector3.h"
-#include "rayhit.h"
-#include "types/base_types.h"
 #include "types/color.h"
-#include "viewport.h"
 #include "world.h"
+#include "types/base_types.h"
+#include "random.h"
+#include "rayhit.h"
+#include "camera.h"
 
 static Color cast_ray(Ray ray, World* world, u64* state, u32 bounce_count) {
-  if (bounce_count + 1 >= world->max_ray_bounces) {
+  if (bounce_count > world->max_ray_bounces) {
     return (Color) { 0.0f, 0.0f, 0.0f };
   }
 
@@ -25,7 +24,7 @@ static Color cast_ray(Ray ray, World* world, u64* state, u32 bounce_count) {
   f32 closest_t = FLT_MAX;
 
   for (usize i = 0; i < world->hittables_count; i++) {
-    RayHit rayhit = sphere_ray_hit(&world->hittables[i], &ray);
+    RayHit rayhit = world->hittables[i]->hit(world->hittables[i], ray);
     if (rayhit.hit && rayhit.t > 0.0f && rayhit.t < closest_t) {
       closest_hit = rayhit;
       closest_t = rayhit.t;
@@ -33,8 +32,10 @@ static Color cast_ray(Ray ray, World* world, u64* state, u32 bounce_count) {
   }
 
   if (closest_hit.hit) {
-    Ray new_ray = (Ray) { closest_hit.hit_position, vector3_random_in_hemisphere(state, closest_hit.normal) };
-    return color_mulitply(closest_hit.color, cast_ray(new_ray, world, state, bounce_count + 1));
+    Vector3 origin = ray_at((Ray) { closest_hit.hit_position, closest_hit.normal }, 0.001f);
+    Vector3 reflected = vector3_reflect(ray.direction, closest_hit.normal);
+    Ray new_ray = (Ray) { origin, vector3_add(reflected, vector3_scale(vector3_random_unit_vector(state), closest_hit.material.roughness)) };
+    return color_mulitply(color_add(closest_hit.material.albedo, color_scale(closest_hit.material.albedo, closest_hit.material.emission_strength)), cast_ray(new_ray, world, state, bounce_count + 1));
   }
 
   return world->sky_color;
@@ -54,6 +55,8 @@ Camera* camera_create(u32 width, u32 height, World* world) {
     return NULL;
   }
   memset(camera->framebuffer, 0, sizeof(Color) * width * height);
+  camera->sample_count = 0;
+  camera->sample_limit = DEFAULT_SAMPLE_LIMIT;
   camera->width = width;
   camera->height = height;
 
@@ -161,7 +164,7 @@ void camera_clear_framebuffer(Camera* camera) {
 }
 
 void camera_render(Camera* camera, World* world) {
-  if (!camera->render) { return; }
+  if (!camera->render || camera->sample_count >= camera->sample_limit) { return; }
 
   for (usize i = 0; i < camera->thread_count; i++) {
     usize index_delta = (camera->height / camera->thread_count);

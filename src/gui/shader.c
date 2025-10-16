@@ -32,16 +32,16 @@ Shader shader_create(const char* vertex_shader_path, const char* fragment_shader
   file_destroy_string(vertex_shader_source);
   file_destroy_string(fragment_shader_source);
 
-  shader.id = glCreateProgram();
-  glAttachShader(shader.id, vertex_shader);
-  glAttachShader(shader.id, fragment_shader);
-  glLinkProgram(shader.id);
+  shader = glCreateProgram();
+  glAttachShader(shader, vertex_shader);
+  glAttachShader(shader, fragment_shader);
+  glLinkProgram(shader);
 
   s32 shader_result;
   char shader_result_buffer[SHADER_RESULT_BUFFER_SIZE];
-  glGetProgramiv(shader.id, GL_LINK_STATUS, &shader_result);
+  glGetProgramiv(shader, GL_LINK_STATUS, &shader_result);
   if (!shader_result) {
-    glGetProgramInfoLog(shader.id, SHADER_RESULT_BUFFER_SIZE, NULL, shader_result_buffer);
+    glGetProgramInfoLog(shader, SHADER_RESULT_BUFFER_SIZE, NULL, shader_result_buffer);
     fprintf(stderr, "[ERROR] [SHADER] Failed to link shader program:\n");
     fprintf(stderr, "%s", shader_result_buffer);
   }
@@ -52,16 +52,16 @@ Shader shader_create(const char* vertex_shader_path, const char* fragment_shader
   return shader;
 }
 
-void shader_bind(Shader* shader) {
-  glUseProgram(shader->id);
+void shader_bind(Shader shader) {
+  glUseProgram(shader);
 }
 
 void shader_unbind() {
   glUseProgram(0);
 }
 
-void shader_destroy(Shader* shader) {
-  glDeleteProgram(shader->id);
+void shader_destroy(Shader shader) {
+  glDeleteProgram(shader);
 }
 
 static GLuint create_individual_shader(const char* shader_source, GLenum shader_type) {

@@ -1,10 +1,11 @@
 #include "camera.h"
-#include "math/sphere.h"
+#include "hittables/hittable.h"
+#include "hittables/sphere.h"
 #include "math/vector3.h"
+#include "types/material.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <math.h>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -48,55 +49,84 @@ void gui_update(GUI* gui, Camera* camera, World* world) {
     camera_clear_framebuffer(camera);
   }
   igCheckbox("Render", &camera->render);
-  igInputInt("Thread count", &camera->thread_count, 1, 1, 0);
+  igInputInt("Sample Limit", (s32*) &camera->sample_limit, 1, 2, 0);
+  igSliderInt("Thread Count", (s32*) &camera->thread_count, 1, MAX_THREAD_COUNT, "%u", 0);
   f32 position[3] = { camera->position.x, camera->position.y, camera->position.z };
-  if (igInputFloat3("Camera Position", position, "%0.2f", 0)) {
+  if (igDragFloat3("Camera Position", position, 0.5f, -1000.0f, 1000.0f, "%0.2f", 0)) {
     camera->position = (Vector3) { position[0], position[1], position[2] };
     camera_clear_framebuffer(camera);
   }
 
   igSeparatorText("World");
-  igInputInt("Max Ray Bounces", &world->max_ray_bounces, 1, 2, 0);
+  igInputInt("Max Ray Bounces", (s32*) &world->max_ray_bounces, 1, 2, 0);
   f32 sky_color[3] = { world->sky_color.red, world->sky_color.green, world->sky_color.blue };
   if (igColorEdit3("Sky Color", sky_color, ImGuiColorEditFlags_NoPicker)) {
     world->sky_color = (Color) { sky_color[0], sky_color[1], sky_color[2] };
     camera_clear_framebuffer(camera);
   }
+
+  igSeparator();
+
   for (usize i = 0; i < world->hittables_count; i++) {
     igPushID_Int(i);
     if (igCollapsingHeader_BoolPtr("Sphere", NULL, 0)) {
-      f32 position[3] = { world->hittables[i].position.x, world->hittables[i].position.y,  world->hittables[i].position.z };
-      if (igInputFloat3("Sphere Position", position, "%0.2f", 0)) {
-        world->hittables[i].position = (Vector3) { position[0], position[1], position[2] };
+      f32 position[3] = { world->hittables[i]->position->x, world->hittables[i]->position->y,  world->hittables[i]->position->z };
+      if (igDragFloat3("Sphere Position", position, 0.5f, -1000.0f, 1000.0f, "%0.2f", 0)) {
+        *world->hittables[i]->position = (Vector3) { position[0], position[1], position[2] };
         camera_clear_framebuffer(camera);
       }
-      if(igInputFloat("Radius", &world->hittables[i].radius, 0.5f, 1.0f, "%0.2f", 0)) {
+      if(igDragFloat("Radius", &((Sphere*) world->hittables[i])->radius, 0.5f, -1000.0f, 1000.0f, "%0.2f", 0)) {
         camera_clear_framebuffer(camera);
       }
+      
+      igSeparator();
+      
+      f32 albedo_color[3] = { ((Sphere*) world->hittables[i])->material.albedo.red, ((Sphere*) world->hittables[i])->material.albedo.green, ((Sphere*) world->hittables[i])->material.albedo.blue };
+      if (igColorEdit3("Albedo", albedo_color, 0)) {
+        ((Sphere*) world->hittables[i])->material.albedo = (Color) { albedo_color[0], albedo_color[1], albedo_color[2] };
+        camera_clear_framebuffer(camera);
+      }
+      if (igDragFloat("Roughness", &((Sphere*) world->hittables[i])->material.roughness, 0.05f, 0.0f, 1.0f, "%0.2f", 0)) {
+        camera_clear_framebuffer(camera);
+      }
+      if (igDragFloat("Emission Strength", &((Sphere*) world->hittables[i])->material.emission_strength, 1.0f, 0.0f, 1000.0f, "%0.2f", 0)) {
+        camera_clear_framebuffer(camera);
+      }
+
+      igSeparator();
+
       if (igSmallButton("Remove")) {
         world_remove(world, i);
+        camera_clear_framebuffer(camera);
+      }
+      igSameLine(0, igGetStyle()->ItemSpacing.x);
+      if (igSmallButton("Duplicate")) {
+        Sphere* sphere = (Sphere*) world->hittables[i];
+        world_add(world, (Hittable*) sphere_create(sphere->position, sphere->radius, sphere->material));
         camera_clear_framebuffer(camera);
       }
     }
     igPopID();
   }
+
+  igSeparator();
+
   if (igSmallButton("Add")) {
-    world_add(world, (Sphere) { (Vector3) { 0.0f, 0.0f, 0.0f }, 1.0f });
+    world_add(world, (Hittable*) sphere_create((Vector3) { 0.0f, 0.0f, 0.0f }, 1.0f, MATERIAL_GRAY));
     camera_clear_framebuffer(camera);
   }
 
   igSeparatorText("Exporting");
 
-  if (igSmallButton("Export PNG")) {
+  igInputTextWithHint("Export Filename", "filename.jpg", gui->export_filename_buffer, EXPORT_FILENAME_BUFFER_SIZE, 0, NULL, NULL);
+  if (igSmallButton("Export JPG")) {
     if (strnlen(gui->export_filename_buffer, EXPORT_FILENAME_BUFFER_SIZE) > 0) {
-      image_create(gui->export_filename_buffer, camera->framebuffer, camera->width, camera->height);
+      image_create(gui->export_filename_buffer, camera->framebuffer, camera->sample_count, camera->width, camera->height);
       printf("[INFO] [EXPORT] Exported render to %s\n", gui->export_filename_buffer);
     } else {
       fprintf(stderr, "[ERROR] [EXPORT] Failed to export image, no filename!\n");
     }
   }
-  igSameLine(0, igGetStyle()->ItemSpacing.x);
-  igInputTextWithHint(" ", "filename.png", gui->export_filename_buffer, EXPORT_FILENAME_BUFFER_SIZE, 0, NULL, NULL);
   igEnd();
   window_imgui_end_frame();
 }
@@ -115,4 +145,6 @@ void gui_render(GUI* gui, Color* framebuffer, u32 sample_count, u32 width, u32 h
 
 void gui_destroy(GUI* gui) {
   free(gui->framebufferRGB);
+  sprite_destroy(&gui->sprite);
+  window_destroy(gui->window);
 }

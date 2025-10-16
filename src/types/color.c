@@ -1,5 +1,7 @@
 #include "types/color.h"
 
+#include <math.h>
+
 inline Color color_add(Color a, Color b) {
   return (Color) { (a.red + b.red), (a.green + b.green), (a.blue + b.blue) };
 }
@@ -13,5 +15,5 @@ inline Color color_scale(Color a, f32 scalar) {
 }
 
 inline ColorRGB color_convert_to_rgb(Color color) {
-  return (ColorRGB) { color.red * 255.0f, color.green * 255.0f, color.blue * 255.0f };
+  return (ColorRGB) { fmin(color.red, 1.0f) * 255.0f, fmin(color.green, 1.0f) * 255.0f, fmin(color.blue, 1.0f) * 255.0f };
 }

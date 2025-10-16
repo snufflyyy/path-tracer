@@ -25,16 +25,17 @@ target_include_directories(cimgui PUBLIC
 add_executable(
   ${PROJECT_NAME}
   src/main.c
-  src/types/base_types.c
   src/types/color.c
   src/image.c
+  src/random.c
   src/viewport.c
   src/camera.c
   src/world.c
 
   src/math/vector3.c
   src/math/ray.c
-  src/math/sphere.c
+
+  src/hittables/sphere.c
 
   src/gui/gui.c
   src/gui/utils/file.c

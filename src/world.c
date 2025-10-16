@@ -3,13 +3,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "math/sphere.h"
+#include "hittables/hittable.h"
+#include "hittables/sphere.h"
 
 World world_create() {
   World world = {0};
 
   world.capacity = WORLD_STARTING_CAPACITY;
-  world.hittables = (Sphere*) malloc(sizeof(Sphere) * world.capacity);
+  world.hittables = (Hittable**) malloc(sizeof(Hittable*) * world.capacity);
   if (!world.hittables) {
     fprintf(stderr, "[ERROR] [WORLD] Failed to allocate memory for world!\n");
     return (World) {0};
@@ -21,9 +22,9 @@ World world_create() {
   return world;
 }
 
-void world_add(World* world, Hittable sphere) {
+void world_add(World* world, Hittable* object) {
   if (world->hittables_count + 1 >= world->capacity) {
-    Hittable* temp = (Hittable*) realloc(world->hittables, sizeof(Hittable) * (world->capacity * WORLD_SCALE_FACTOR));
+    Hittable** temp = (Hittable**) realloc(world->hittables, sizeof(Hittable*) * (world->capacity * WORLD_SCALE_FACTOR));
     if (!temp) {
       fprintf(stderr, "[ERROR] [WORLD] Failed to reallocate memory while increasing world capacity!\n");
       return;
@@ -33,13 +34,13 @@ void world_add(World* world, Hittable sphere) {
     world->capacity *= WORLD_SCALE_FACTOR;
   }
 
-  world->hittables[world->hittables_count] = sphere;
+  world->hittables[world->hittables_count] = object;
   world->hittables_count++;
 }
 
 void world_remove(World* world, usize index) {
   if (world->hittables_count <= world->capacity / WORLD_SCALE_FACTOR) {
-    Hittable* temp = (Hittable*) realloc(world->hittables, sizeof(Hittable) * (world->capacity / WORLD_SCALE_FACTOR));
+    Hittable** temp = (Hittable**) realloc(world->hittables, sizeof(Hittable*) * (world->capacity / WORLD_SCALE_FACTOR));
     if (!temp) {
       fprintf(stderr, "[ERROR] [WORLD] Failed to reallocate memory while shrinking world capacity!\n");
       return;

@@ -14,13 +14,13 @@ Sprite sprite_create(Shader shader, Texture texture) {
 }
 
 void sprite_render(Sprite* sprite) {
-  shader_bind(&sprite->shader);
+  shader_bind(sprite->shader);
   texture_bind(sprite->texture);
   quad_render(sprite->quad);
 }
 
 void sprite_destroy(Sprite* sprite) {
-  shader_destroy(&sprite->shader);
+  shader_destroy(sprite->shader);
   texture_destroy(sprite->texture);
   quad_destroy(sprite->quad);
 }

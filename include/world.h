@@ -1,6 +1,6 @@
 #pragma once
 
-#include "math/sphere.h"
+#include "hittables/hittable.h"
 #include "types/base_types.h"
 #include "types/color.h"
 
@@ -10,10 +10,8 @@
 #define DEFAULT_MAX_RAY_BOUNCES 10
 #define DEFAULT_SKY_COLOR (Color) { 0.65f, 0.80f, 1.0f }
 
-typedef Sphere Hittable; // temp
-
 typedef struct World {
-  Hittable* hittables;
+  Hittable** hittables;
   u32 hittables_count;
   u32 capacity;
 
@@ -22,6 +20,6 @@ typedef struct World {
 } World;
 
 World world_create();
-void world_add(World* world, Sphere sphere);
+void world_add(World* world, Hittable* object);
 void world_remove(World* world, usize index);
 void world_destroy(World* world);

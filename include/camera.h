@@ -1,15 +1,18 @@
 #pragma once
 
+#include <stdbool.h>
 #include <pthread.h>
 
-#include "math/vector3.h"
-#include "types/color.h"
-#include "types/base_types.h"
-#include "viewport.h"
 #include "world.h"
+#include "types/base_types.h"
+#include "math/vector3.h"
+#include "viewport.h"
+#include "types/color.h"
+
+#define DEFAULT_SAMPLE_LIMIT 100
 
 #define MAX_THREAD_COUNT 16
-#define DEFAULT_THREAD_COUNT 4
+#define DEFAULT_THREAD_COUNT 8
 
 typedef struct CameraRenderWorkerData {
   bool alive;
@@ -39,6 +42,7 @@ typedef struct Camera {
 
   Color* framebuffer;
   u32 sample_count;
+  u32 sample_limit;
   u32 width, height;
 
   bool render;
