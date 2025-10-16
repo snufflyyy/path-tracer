@@ -6,9 +6,9 @@ typedef struct Vector3 {
   f32 x, y, z;
 } Vector3;
 
-Vector3 vector3_random(f32 min, f32 max);
-Vector3 vector3_random_unit_vector();
-Vector3 vector3_random_in_hemisphere(Vector3 normal);
+Vector3 vector3_random(u64* state, f32 min, f32 max);
+Vector3 vector3_random_unit_vector(u64* state);
+Vector3 vector3_random_in_hemisphere(u64* state, Vector3 normal);
 
 Vector3 vector3_add(Vector3 a, Vector3 b);
 Vector3 vector3_subtract(Vector3 a, Vector3 b);

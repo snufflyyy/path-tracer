@@ -8,7 +8,7 @@
 #define WORLD_SCALE_FACTOR 2.0
 
 #define DEFAULT_MAX_RAY_BOUNCES 10
-#define DEFAULT_SKY_COLOR (Color) { 0.35f, 0.45f, 0.6f }
+#define DEFAULT_SKY_COLOR (Color) { 0.65f, 0.80f, 1.0f }
 
 typedef Sphere Hittable; // temp
 

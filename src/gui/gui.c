@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -46,6 +47,8 @@ void gui_update(GUI* gui, Camera* camera, World* world) {
   if (igSmallButton("Reset")) {
     camera_clear_framebuffer(camera);
   }
+  igCheckbox("Render", &camera->render);
+  igInputInt("Thread count", &camera->thread_count, 1, 1, 0);
   f32 position[3] = { camera->position.x, camera->position.y, camera->position.z };
   if (igInputFloat3("Camera Position", position, "%0.2f", 0)) {
     camera->position = (Vector3) { position[0], position[1], position[2] };

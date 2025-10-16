@@ -41,7 +41,7 @@ void world_remove(World* world, usize index) {
   if (world->hittables_count <= world->capacity / WORLD_SCALE_FACTOR) {
     Hittable* temp = (Hittable*) realloc(world->hittables, sizeof(Hittable) * (world->capacity / WORLD_SCALE_FACTOR));
     if (!temp) {
-      fprintf(stderr, "[ERROR] [WORLD] [Failed to reallocate memory while shrinking world capacity!\n");
+      fprintf(stderr, "[ERROR] [WORLD] Failed to reallocate memory while shrinking world capacity!\n");
       return;
     }
 
