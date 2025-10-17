@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include <math.h>
 
 #include "math/vector3.h"
 #include "types/color.h"
@@ -14,6 +15,8 @@
 #include "random.h"
 #include "rayhit.h"
 #include "camera.h"
+
+static f32 reflectance(f32 cosine, f32 refraction_ratio);
 
 static Color cast_ray(Ray ray, World* world, u64* state, u32 bounce_count) {
   if (bounce_count > world->max_ray_bounces) {
@@ -25,20 +28,42 @@ static Color cast_ray(Ray ray, World* world, u64* state, u32 bounce_count) {
 
   for (usize i = 0; i < world->hittables_count; i++) {
     RayHit rayhit = world->hittables[i]->hit(world->hittables[i], ray);
-    if (rayhit.hit && rayhit.t > 0.0f && rayhit.t < closest_t) {
+    if (rayhit.hit && rayhit.t > 0.001f && rayhit.t < closest_t) {
       closest_hit = rayhit;
       closest_t = rayhit.t;
     }
   }
 
   if (closest_hit.hit) {
-    Vector3 origin = ray_at((Ray) { closest_hit.hit_position, closest_hit.normal }, 0.001f);
-    Vector3 reflected = vector3_reflect(ray.direction, closest_hit.normal);
-    Ray new_ray = (Ray) { origin, vector3_add(reflected, vector3_scale(vector3_random_unit_vector(state), closest_hit.material.roughness)) };
-    return color_mulitply(color_add(closest_hit.material.albedo, color_scale(closest_hit.material.albedo, closest_hit.material.emission_strength)), cast_ray(new_ray, world, state, bounce_count + 1));
+    Vector3 origin = closest_hit.hit_position;
+    Vector3 direction;
+    if (closest_hit.material.glass) {
+      f32 refraction_ratio = closest_hit.inside ? (1.0f / closest_hit.material.refraction_index) : closest_hit.material.refraction_index;
+      f32 cos_theta = fmin(vector3_dot_product(vector3_scale(vector3_normalize(ray.direction), -1.0f), closest_hit.normal), 1.0f);
+      f32 sin_theta = sqrtf(1.0f - (cos_theta * cos_theta));
+
+      if (refraction_ratio * sin_theta < 1.0f || reflectance(cos_theta, refraction_ratio) > random_f32(state)) {
+        direction = vector3_refract(vector3_normalize(ray.direction), closest_hit.normal, refraction_ratio);
+      } else {
+        direction = vector3_reflect(ray.direction, closest_hit.normal);
+      }
+    } else {
+      direction = vector3_reflect(ray.direction, closest_hit.normal);
+    }
+
+    Color color = color_add(closest_hit.material.albedo, color_scale(closest_hit.material.albedo, closest_hit.material.emission_strength));
+    Ray new_ray = (Ray) { origin, vector3_add(direction, vector3_scale(vector3_random_unit_vector(state), closest_hit.material.roughness)) };
+
+    return color_mulitply(color, cast_ray(new_ray, world, state, bounce_count + 1));
   }
 
   return world->sky_color;
+}
+
+static f32 reflectance(f32 cosine, f32 refraction_ratio) {
+  f32 r = (1.0f - refraction_ratio) / (1.0f + refraction_ratio);
+  r *= r;
+  return r + (1.0f - r) * powf(1.0f - cosine, 5.0f);
 }
 
 Camera* camera_create(u32 width, u32 height, World* world) {
@@ -49,12 +74,13 @@ Camera* camera_create(u32 width, u32 height, World* world) {
 
   camera->viewport = viewport_create(width, height);
 
-  camera->framebuffer = (Color*) malloc(sizeof(Color) * width * height);
+  u32 framebuffer_length = width * height;
+  camera->framebuffer = (Color*) malloc(sizeof(Color) * framebuffer_length);
   if (!camera->framebuffer) {
     fprintf(stderr, "[ERROR] [CAMERA] Failed to allocate memory for framebuffer!\n");
     return NULL;
   }
-  memset(camera->framebuffer, 0, sizeof(Color) * width * height);
+  memset(camera->framebuffer, 0, sizeof(Color) * framebuffer_length);
   camera->sample_count = 0;
   camera->sample_limit = DEFAULT_SAMPLE_LIMIT;
   camera->width = width;
@@ -103,7 +129,6 @@ void* camera_render_worker_work(void* thread_data) {
 }
 
 void camera_render_worker_create(Camera* camera, World* world) {
-  usize index_delta = (camera->height / camera->thread_count);
   for (usize i = 0; i < MAX_THREAD_COUNT; i++) {
     u64 state = time(NULL) * (88172645463325252ULL + i);
     camera->render_workers[i].thread_data = (CameraRenderWorkerData) {
@@ -117,8 +142,6 @@ void camera_render_worker_create(Camera* camera, World* world) {
 
       .start_x = 0,
       .end_x = camera->width,
-      .start_y = (i * index_delta),
-      .end_y = (i * index_delta) + index_delta
     };
     pthread_mutex_init(&camera->render_workers[i].thread_data.lock, NULL);
     pthread_cond_init(&camera->render_workers[i].thread_data.cond, NULL);
@@ -168,7 +191,7 @@ void camera_render(Camera* camera, World* world) {
 
   for (usize i = 0; i < camera->thread_count; i++) {
     usize index_delta = (camera->height / camera->thread_count);
-    
+
     pthread_mutex_lock(&camera->render_workers[i].thread_data.lock);
     camera->render_workers[i].thread_data.start_y = (i * index_delta);
     camera->render_workers[i].thread_data.end_y = (i * index_delta) + index_delta;

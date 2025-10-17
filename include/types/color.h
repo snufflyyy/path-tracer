@@ -14,4 +14,6 @@ Color color_add(Color a, Color b);
 Color color_mulitply(Color a, Color b);
 Color color_scale(Color a, f32 scalar);
 
+Color color_linear_to_gamma(Color color);
+
 ColorRGB color_convert_to_rgb(Color color);

@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "hittables/hittable.h"
 #include "types/material.h"
@@ -41,12 +42,20 @@ RayHit sphere_ray_hit(Hittable* hittable, Ray ray) {
 
   f32 t = (h - sqrtf(discriminant)) / a;
   Vector3 hit_position = ray_at(ray, t);
+  Vector3 normal = vector3_normalize(vector3_subtract(hit_position, sphere->position));
+
+  bool inside = false;
+  if (vector3_dot_product(ray.direction, normal) > 0.0f) {
+    inside = true;
+    normal = vector3_scale(normal, -1.0f);
+  }
 
   RayHit rayhit = {
     .hit = true,
     .t = t,
     .hit_position = hit_position,
     .normal = vector3_normalize(vector3_subtract(hit_position, sphere->position)),
+    .inside = inside,
     .material = sphere->material
   };
 

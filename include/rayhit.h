@@ -11,6 +11,7 @@ typedef struct RayHit {
   f32 t;
   Vector3 hit_position;
   Vector3 normal;
+  bool inside;
 
   Material material;
 } RayHit;
