@@ -60,8 +60,10 @@ void gui_update(GUI* gui, Camera* camera, World* world) {
 
   igBeginMainMenuBar();
   if (igBeginMenu("File", true)) {
-    if (igMenuItem_Bool("Export JPG", NULL, false, true)) { 
+    if (igMenuItem_Bool("Export JPG", NULL, false, true)) {
+      camera_render_export(camera, world);
       image_create("output.jpg", camera->framebuffer, camera->sample_count, camera->width, camera->height);
+
       printf("[INFO] [EXPORT] Saved render to output.jpg\n");
     }
     if (igMenuItem_Bool("Exit", NULL, false, true)) {

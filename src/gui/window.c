@@ -30,6 +30,8 @@ Window* window_create(u32 width, u32 height, const char* title) {
     return NULL;
   }
 
+  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -63,7 +65,8 @@ Window* window_create(u32 width, u32 height, const char* title) {
 
   ImGuiIO* imgui_io = igGetIO_Nil();
   #ifdef IMGUI_HAS_DOCK
-    imgui_io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_DockingEnable;
+    imgui_io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    imgui_io->ConfigFlags |= ImGuiConfigFlags_DockingEnable;
   #endif
 
   ImGui_ImplGlfw_InitForOpenGL(window->glfw_window, true);
@@ -101,7 +104,7 @@ void window_imgui_end_frame() {
 
 void window_imgui_render() {
   igRender();
-  ImGui_ImplOpenGL3_RenderDrawData(igGetDrawData());
+  ImGui_ImplOpenGL3_RenderDrawData(igGetDrawData()); 
 }
 
 void window_destroy(Window *window) {

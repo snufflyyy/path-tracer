@@ -105,18 +105,34 @@ void* camera_render_worker_work(void* thread_data) {
       break;
     }
 
-    for (usize y = data->start_y; y < data->end_y; y++) {
-      for (usize x = data->start_x; x < data->end_x; x++) {
-        usize i = (y * data->camera->width + x);
-
-        f32 direction_x = data->camera->viewport.first_pixel.x + (data->camera->viewport.pixel_delta.x * (x + (random_f32(&data->state) - 0.5f)));
-        f32 direction_y = data->camera->viewport.first_pixel.y + (data->camera->viewport.pixel_delta.y * (y + (random_f32(&data->state) - 0.5f)));
-        Vector3 direction = { direction_x, direction_y, -data->camera->focal_length };
-        data->camera->framebuffer[i] = color_add(data->camera->framebuffer[i], cast_ray((Ray) { data->camera->position, direction }, data->world, &data->state, 0)); 
-      }
+    usize sample_count = 1;
+    if (data->export_mode) {
+      sample_count = data->camera->sample_limit;
     }
 
     data->work_ready = false;
+
+    Camera* camera = data->camera;
+    World* world = data->world;
+    u64* state = &data->state;
+    usize start_x = data->start_x, end_x = data->end_x;
+    usize start_y = data->start_y, end_y = data->end_y;
+    pthread_mutex_unlock(&data->lock);
+
+    for (usize sample = 0; sample < sample_count; sample++) {
+      for (usize y = start_y; y < end_y; y++) {
+        for (usize x = start_x; x < end_x; x++) {
+          usize i = (y * camera->width + x);
+
+          f32 direction_x = camera->viewport.first_pixel.x + (camera->viewport.pixel_delta.x * (x + (random_f32(state) - 0.5f)));
+          f32 direction_y = camera->viewport.first_pixel.y + (camera->viewport.pixel_delta.y * (y + (random_f32(state) - 0.5f)));
+          Vector3 direction = { direction_x, direction_y, -camera->focal_length };
+          data->camera->framebuffer[i] = color_add(camera->framebuffer[i], cast_ray((Ray) { camera->position, direction }, world, state, 0)); 
+        }
+      }
+    }
+
+    pthread_mutex_lock(&data->lock);
     data->work_done = true;
     pthread_cond_signal(&data->cond);
     pthread_mutex_unlock(&data->lock);
@@ -183,7 +199,7 @@ void camera_clear_framebuffer(Camera* camera) {
   camera->sample_count = 0;
 }
 
-void camera_render(Camera* camera, World* world) {
+void camera_render_frame(Camera* camera, World* world) {
   if (!camera->render || camera->sample_count >= camera->sample_limit) { return; }
 
   for (usize i = 0; i < camera->thread_count; i++) {
@@ -201,6 +217,28 @@ void camera_render(Camera* camera, World* world) {
   }
 
   camera->sample_count++;
+}
+
+void camera_render_export(Camera* camera, World* world) {
+  camera_clear_framebuffer(camera);
+  for (usize i = 0; i < camera->thread_count; i++) {
+    usize index_delta = (camera->height / camera->thread_count);
+
+    pthread_mutex_lock(&camera->render_workers[i].thread_data.lock);
+    camera->render_workers[i].thread_data.export_mode = true;
+    camera->render_workers[i].thread_data.start_y = (i * index_delta);
+    camera->render_workers[i].thread_data.end_y = (i * index_delta) + index_delta;
+    pthread_mutex_unlock(&camera->render_workers[i].thread_data.lock);
+
+    camera_render_worker_render(&camera->render_workers[i]);
+  }
+
+  for (usize i = 0; i < camera->thread_count; i++) { 
+    camera_render_worker_wait(&camera->render_workers[i]);
+    camera->render_workers[i].thread_data.export_mode = false;
+  }
+
+  camera->sample_count = camera->sample_limit;
 }
 
 void camera_destroy(Camera* camera) {

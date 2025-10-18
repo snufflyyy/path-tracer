@@ -17,7 +17,7 @@ int main() {
   while (window_is_running(gui.window)) {
     gui_update(&gui, camera, &world);
 
-    camera_render(camera, &world);
+    camera_render_frame(camera, &world);
     gui_render(&gui);
   }
 

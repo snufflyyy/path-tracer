@@ -16,6 +16,7 @@
 
 typedef struct CameraRenderWorkerData {
   bool alive;
+  bool export_mode;
   bool work_ready;
   bool work_done;
   pthread_mutex_t lock;
@@ -58,5 +59,6 @@ void camera_render_worker_render(CameraRenderWorker* worker);
 void camera_render_worker_wait(CameraRenderWorker* worker);
 void camera_render_worker_destroy(Camera* camera);
 void camera_clear_framebuffer(Camera* camera);
-void camera_render(Camera* camera, World* world); 
+void camera_render_frame(Camera* camera, World* world);
+void camera_render_export(Camera* camera, World* world);
 void camera_destroy(Camera* camera);
