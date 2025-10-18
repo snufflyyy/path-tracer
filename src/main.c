@@ -18,7 +18,7 @@ int main() {
     gui_update(&gui, camera, &world);
 
     camera_render(camera, &world);
-    gui_render(&gui, camera->framebuffer, camera->sample_count, camera->width, camera->height);
+    gui_render(&gui);
   }
 
   gui_destroy(&gui);

@@ -38,8 +38,6 @@ Window* window_create(u32 width, u32 height, const char* title) {
     glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GL_FALSE);
   #endif
 
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
   window->glfw_window = glfwCreateWindow(width, height, title, NULL, NULL);
   if (!window->glfw_window) {
     fprintf(stderr, "[ERROR] [GLFW] [WINDOW] Failed to create GLFW window!\n");
@@ -64,10 +62,18 @@ Window* window_create(u32 width, u32 height, const char* title) {
   igCreateContext(NULL);
 
   ImGuiIO* imgui_io = igGetIO_Nil();
+  #ifdef IMGUI_HAS_DOCK
+    imgui_io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_DockingEnable;
+  #endif
+
   ImGui_ImplGlfw_InitForOpenGL(window->glfw_window, true);
   ImGui_ImplOpenGL3_Init("#version 330");
 
   return window;
+}
+
+void window_set_is_running(Window* window, bool value) {
+  glfwSetWindowShouldClose(window->glfw_window, !value);
 }
 
 bool window_is_running(Window* window) {
@@ -76,7 +82,7 @@ bool window_is_running(Window* window) {
 
 void window_update(Window* window) {
   glfwSwapBuffers(window->glfw_window);
-  glfwPollEvents(); 
+  glfwPollEvents();
 }
 
 void window_clear(Window* window) {

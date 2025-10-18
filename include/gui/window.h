@@ -12,6 +12,7 @@ typedef struct Window {
 } Window;
 
 Window* window_create(u32 width, u32 height, const char* title);
+void window_set_is_running(Window* window, bool value);
 bool window_is_running(Window* window);
 void window_update(Window* window);
 void window_clear(Window* window);

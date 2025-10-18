@@ -36,7 +36,7 @@ static Color cast_ray(Ray ray, World* world, u64* state, u32 bounce_count) {
 
   if (closest_hit.hit) {
     Vector3 origin = closest_hit.hit_position;
-    Vector3 direction;
+    Vector3 direction = vector3_reflect(ray.direction, closest_hit.normal);
     if (closest_hit.material.glass) {
       f32 refraction_ratio = closest_hit.inside ? (1.0f / closest_hit.material.refraction_index) : closest_hit.material.refraction_index;
       f32 cos_theta = fmin(vector3_dot_product(vector3_scale(vector3_normalize(ray.direction), -1.0f), closest_hit.normal), 1.0f);
@@ -44,14 +44,10 @@ static Color cast_ray(Ray ray, World* world, u64* state, u32 bounce_count) {
 
       if (refraction_ratio * sin_theta < 1.0f || reflectance(cos_theta, refraction_ratio) > random_f32(state)) {
         direction = vector3_refract(vector3_normalize(ray.direction), closest_hit.normal, refraction_ratio);
-      } else {
-        direction = vector3_reflect(ray.direction, closest_hit.normal);
       }
-    } else {
-      direction = vector3_reflect(ray.direction, closest_hit.normal);
     }
 
-    Color color = color_add(closest_hit.material.albedo, color_scale(closest_hit.material.albedo, closest_hit.material.emission_strength));
+    Color color = color_add(closest_hit.material.albedo, color_scale(closest_hit.material.albedo, closest_hit.material.emission_strength)); // emission
     Ray new_ray = (Ray) { origin, vector3_add(direction, vector3_scale(vector3_random_unit_vector(state), closest_hit.material.roughness)) };
 
     return color_mulitply(color, cast_ray(new_ray, world, state, bounce_count + 1));
@@ -61,9 +57,9 @@ static Color cast_ray(Ray ray, World* world, u64* state, u32 bounce_count) {
 }
 
 static f32 reflectance(f32 cosine, f32 refraction_ratio) {
-  f32 r = (1.0f - refraction_ratio) / (1.0f + refraction_ratio);
-  r *= r;
-  return r + (1.0f - r) * powf(1.0f - cosine, 5.0f);
+  f32 reflectance = (1.0f - refraction_ratio) / (1.0f + refraction_ratio);
+  reflectance *= reflectance;
+  return reflectance + (1.0f - reflectance) * powf(1.0f - cosine, 5.0f);
 }
 
 Camera* camera_create(u32 width, u32 height, World* world) {
@@ -87,6 +83,7 @@ Camera* camera_create(u32 width, u32 height, World* world) {
   camera->height = height;
 
   camera->render = true;
+  camera->gamma_correction = false;
 
   camera->thread_count = DEFAULT_THREAD_COUNT;
   camera_render_worker_create(camera, world);
@@ -111,7 +108,7 @@ void* camera_render_worker_work(void* thread_data) {
     for (usize y = data->start_y; y < data->end_y; y++) {
       for (usize x = data->start_x; x < data->end_x; x++) {
         usize i = (y * data->camera->width + x);
-      
+
         f32 direction_x = data->camera->viewport.first_pixel.x + (data->camera->viewport.pixel_delta.x * (x + (random_f32(&data->state) - 0.5f)));
         f32 direction_y = data->camera->viewport.first_pixel.y + (data->camera->viewport.pixel_delta.y * (y + (random_f32(&data->state) - 0.5f)));
         Vector3 direction = { direction_x, direction_y, -data->camera->focal_length };
@@ -130,7 +127,7 @@ void* camera_render_worker_work(void* thread_data) {
 
 void camera_render_worker_create(Camera* camera, World* world) {
   for (usize i = 0; i < MAX_THREAD_COUNT; i++) {
-    u64 state = time(NULL) * (88172645463325252ULL + i);
+    u64 state = time(NULL) * (88172645463325252ULL + i); // probably find a like correct way of doing this
     camera->render_workers[i].thread_data = (CameraRenderWorkerData) {
       .alive = true,
       .work_ready = false,
@@ -196,7 +193,7 @@ void camera_render(Camera* camera, World* world) {
     camera->render_workers[i].thread_data.start_y = (i * index_delta);
     camera->render_workers[i].thread_data.end_y = (i * index_delta) + index_delta;
     pthread_mutex_unlock(&camera->render_workers[i].thread_data.lock);
-    
+
     camera_render_worker_render(&camera->render_workers[i]);
   }
   for (usize i = 0; i < camera->thread_count; i++) {

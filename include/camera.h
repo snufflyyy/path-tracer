@@ -9,10 +9,10 @@
 #include "viewport.h"
 #include "types/color.h"
 
-#define DEFAULT_SAMPLE_LIMIT 100
+#define DEFAULT_SAMPLE_LIMIT 1000
 
 #define MAX_THREAD_COUNT 16
-#define DEFAULT_THREAD_COUNT 8
+#define DEFAULT_THREAD_COUNT 16
 
 typedef struct CameraRenderWorkerData {
   bool alive;
@@ -46,6 +46,7 @@ typedef struct Camera {
   u32 width, height;
 
   bool render;
+  bool gamma_correction;
 
   CameraRenderWorker render_workers[MAX_THREAD_COUNT];
   u32 thread_count;
