@@ -13,7 +13,7 @@
 #include "world.h"
 #include "types/base_types.h"
 #include "random.h"
-#include "rayhit.h"
+#include "types/rayhit.h"
 #include "camera.h"
 
 static f32 reflectance(f32 cosine, f32 refraction_ratio);
@@ -83,10 +83,9 @@ Camera* camera_create(u32 width, u32 height, World* world) {
   camera->height = height;
 
   camera->render = true;
-  camera->gamma_correction = false;
 
   camera->thread_count = DEFAULT_THREAD_COUNT;
-  camera_render_worker_create(camera, world);
+  camera_render_workers_create(camera, world);
 
   return camera;
 }
@@ -141,11 +140,12 @@ void* camera_render_worker_work(void* thread_data) {
   return NULL;
 }
 
-void camera_render_worker_create(Camera* camera, World* world) {
-  for (usize i = 0; i < MAX_THREAD_COUNT; i++) {
+void camera_render_workers_create(Camera* camera, World* world) {
+  for (usize i = 0; i < camera->thread_count; i++) {
     u64 state = time(NULL) * (88172645463325252ULL + i); // probably find a like correct way of doing this
     camera->render_workers[i].thread_data = (CameraRenderWorkerData) {
       .alive = true,
+      .export_mode = false,
       .work_ready = false,
       .work_done = false,
 
@@ -179,8 +179,8 @@ void camera_render_worker_wait(CameraRenderWorker* worker) {
   pthread_mutex_unlock(&worker->thread_data.lock);
 }
 
-void camera_render_worker_destroy(Camera* camera) {
-  for (usize i = 0; i < MAX_THREAD_COUNT; i++) {
+void camera_render_workers_destroy(Camera* camera) {
+  for (usize i = 0; i < camera->thread_count; i++) {
     pthread_mutex_lock(&camera->render_workers[i].thread_data.lock);
     camera->render_workers[i].thread_data.alive = false;
     camera->render_workers[i].thread_data.work_ready = true;
@@ -208,10 +208,14 @@ void camera_render_frame(Camera* camera, World* world) {
     pthread_mutex_lock(&camera->render_workers[i].thread_data.lock);
     camera->render_workers[i].thread_data.start_y = (i * index_delta);
     camera->render_workers[i].thread_data.end_y = (i * index_delta) + index_delta;
+    if (i == camera->thread_count - 1) {
+      camera->render_workers[i].thread_data.end_y = camera->height;
+    }
     pthread_mutex_unlock(&camera->render_workers[i].thread_data.lock);
 
     camera_render_worker_render(&camera->render_workers[i]);
   }
+
   for (usize i = 0; i < camera->thread_count; i++) {
     camera_render_worker_wait(&camera->render_workers[i]);
   }
@@ -228,12 +232,15 @@ void camera_render_export(Camera* camera, World* world) {
     camera->render_workers[i].thread_data.export_mode = true;
     camera->render_workers[i].thread_data.start_y = (i * index_delta);
     camera->render_workers[i].thread_data.end_y = (i * index_delta) + index_delta;
+    if (i == camera->thread_count - 1) {
+      camera->render_workers[i].thread_data.end_y = camera->height;
+    }
     pthread_mutex_unlock(&camera->render_workers[i].thread_data.lock);
 
     camera_render_worker_render(&camera->render_workers[i]);
   }
 
-  for (usize i = 0; i < camera->thread_count; i++) { 
+  for (usize i = 0; i < camera->thread_count; i++) {
     camera_render_worker_wait(&camera->render_workers[i]);
     camera->render_workers[i].thread_data.export_mode = false;
   }
@@ -242,7 +249,7 @@ void camera_render_export(Camera* camera, World* world) {
 }
 
 void camera_destroy(Camera* camera) {
-  camera_render_worker_destroy(camera);
+  camera_render_workers_destroy(camera);
   free(camera->framebuffer);
   free(camera);
 }

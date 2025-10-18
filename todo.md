@@ -8,3 +8,5 @@
  - refactor / scan through all my code to make sure its not shitty
  - rework how exporting works
  - make sure everything is correctly cleaned up
+ - property destroy and recreate the camera when the resolution changes during runtime
+ - property destroy and recreate thread workers when changing the thread count during runtime

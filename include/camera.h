@@ -47,17 +47,16 @@ typedef struct Camera {
   u32 width, height;
 
   bool render;
-  bool gamma_correction;
 
   CameraRenderWorker render_workers[MAX_THREAD_COUNT];
   u32 thread_count;
 } Camera;
 
 Camera* camera_create(u32 width, u32 height, World* world);
-void camera_render_worker_create(Camera* camera, World* world);
+void camera_render_workers_create(Camera* camera, World* world);
 void camera_render_worker_render(CameraRenderWorker* worker);
 void camera_render_worker_wait(CameraRenderWorker* worker);
-void camera_render_worker_destroy(Camera* camera);
+void camera_render_workers_destroy(Camera* camera);
 void camera_clear_framebuffer(Camera* camera);
 void camera_render_frame(Camera* camera, World* world);
 void camera_render_export(Camera* camera, World* world);

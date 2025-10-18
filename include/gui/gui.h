@@ -13,6 +13,7 @@ typedef struct GUI {
   bool show_camera_window;
   bool show_world_window;
   bool show_render_window;
+  bool show_export_warning_window;
 } GUI;
 
 GUI gui_create(u32 width, u32 height);

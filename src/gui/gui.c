@@ -6,6 +6,7 @@
 #include "types/material.h"
 #include <float.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -37,6 +38,7 @@ GUI gui_create(u32 width, u32 height) {
   gui.show_camera_window = true;
   gui.show_world_window = true;
   gui.show_render_window = true;
+  gui.show_export_warning_window = false;
 
   return gui;
 }
@@ -44,16 +46,14 @@ GUI gui_create(u32 width, u32 height) {
 void gui_update(GUI* gui, Camera* camera, World* world) {
   window_update(gui->window);
 
-  usize framebuffer_length = camera->width * camera->height;
-  for (usize i = 0; i < framebuffer_length; i++) {
-    Color color = color_scale(camera->framebuffer[i], 1.0f / camera->sample_count);
-    if (camera->gamma_correction) {
-      color = color_linear_to_gamma(color);
+  if (camera->render && camera->sample_count < camera->sample_limit) {
+    usize framebuffer_length = camera->width * camera->height;
+    for (usize i = 0; i < framebuffer_length; i++) {
+      Color color = color_scale(camera->framebuffer[i], 1.0f / camera->sample_count);
+      gui->framebufferRGB[i] = color_convert_to_rgb(color);
     }
-
-    gui->framebufferRGB[i] = color_convert_to_rgb(color);
+    texture_set_colorRGB_buffer(gui->texture, gui->framebufferRGB, camera->width, camera->height);
   }
-  texture_set_colorRGB_buffer(gui->texture, gui->framebufferRGB, camera->width, camera->height);
 
   bool reset_camera_framebuffer = false;
   window_imgui_begin_frame();
@@ -61,10 +61,7 @@ void gui_update(GUI* gui, Camera* camera, World* world) {
   igBeginMainMenuBar();
   if (igBeginMenu("File", true)) {
     if (igMenuItem_Bool("Export JPG", NULL, false, true)) {
-      camera_render_export(camera, world);
-      image_create("output.jpg", camera->framebuffer, camera->sample_count, camera->width, camera->height);
-
-      printf("[INFO] [EXPORT] Saved render to output.jpg\n");
+      gui->show_export_warning_window = true;
     }
     if (igMenuItem_Bool("Exit", NULL, false, true)) {
       window_set_is_running(gui->window, false);
@@ -79,20 +76,40 @@ void gui_update(GUI* gui, Camera* camera, World* world) {
   }
   igEndMainMenuBar();
 
+  if (gui->show_export_warning_window) {
+    igBegin("Exporting", &gui->show_export_warning_window, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize);
+      igText("Exporting WILL freeze the GUI until the render is complete");
+      igText("Are you sure you want to continue?");
+      if (igSmallButton("Yes")) {
+        u32 starting_time = time(NULL);
+        camera_render_export(camera, world);
+        image_create("output.jpg", camera->framebuffer, camera->sample_count, camera->width, camera->height);
+        u32 elapsed_time = time(NULL) - starting_time;
+
+        gui->show_export_warning_window = false;
+      }
+
+      igSameLine(0, igGetStyle()->ItemInnerSpacing.x);
+
+      if (igSmallButton("No")) {
+        gui->show_export_warning_window = false;
+      }
+    igEnd();
+  }
+
   igDockSpaceOverViewport(igGetID_Str("dockspace"), NULL, ImGuiDockNodeFlags_PassthruCentralNode, NULL);
 
   if (gui->show_camera_window) {
     igBegin("Camera", &gui->show_camera_window, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize);
       igSeparatorText("Statistics");
 
-      igText("Resolution: %dx%d (%d pixels)", camera->width, camera->height, camera->width * camera->height);
       igText("Frames per second: %0.2f", igGetIO_Nil()->Framerate);
       igText("Samples: %d", camera->sample_count);
 
       igSeparatorText("Settings");
 
       f32 position[3] = { camera->position.x, camera->position.y, camera->position.z };
-      if (igDragFloat3("Camera Position", position, 0.1f, -1000.0f, 1000.0f, "%0.2f", 0)) {
+      if (igDragFloat3("Position", position, 0.1f, -1000.0f, 1000.0f, "%0.2f", 0)) {
         camera->position = (Vector3) { position[0], position[1], position[2] };
         reset_camera_framebuffer = true;  
       }
@@ -102,10 +119,26 @@ void gui_update(GUI* gui, Camera* camera, World* world) {
 
       igSeparatorText("Rendering Settings");
 
+      u32 resolution[2] = { camera->width, camera->height };
+      if (igDragInt2("Resolution", (s32*) resolution, 1, 1, INT32_MAX, "%u", 0)) {
+        Vector3 old_position = camera->position;
+        camera_destroy(camera);
+        camera_create(resolution[0], resolution[1], world);
+        camera->position = old_position;
+
+        ColorRGB* temp = (ColorRGB*) realloc(gui->framebufferRGB, sizeof(ColorRGB) * (camera->width * camera->height));
+        if (!temp) {
+          fprintf(stderr, "[ERROR] [GUI] Failed to resize RGB framebuffer!\n");
+        }
+
+        gui->framebufferRGB = temp;
+      }
       igInputInt("Sample Limit", (s32*) &camera->sample_limit, 1, 1, 0);
-      igSliderInt("Thread Count", (s32*) &camera->thread_count, 1, MAX_THREAD_COUNT, "%u", 0);
+      if (igSliderInt("Thread Count", (s32*) &camera->thread_count, 1, MAX_THREAD_COUNT, "%u", 0)) {
+        camera_render_workers_destroy(camera);
+        camera_render_workers_create(camera, world);
+      }
       igCheckbox("Render", &camera->render);
-      igCheckbox("Gamma Correct", &camera->gamma_correction);
       if (igSmallButton("Reset framebuffer")) { reset_camera_framebuffer = true; }
     igEnd();
     }
@@ -187,7 +220,7 @@ void gui_update(GUI* gui, Camera* camera, World* world) {
 
     if (gui->show_render_window) {
       igBegin("Render", &gui->show_render_window, 0);
-        igImage((ImTextureRef) { NULL, gui->texture }, (ImVec2) { camera->width, camera->height }, (ImVec2) { 1.0f, 1.0f }, (ImVec2) { 0.0f, 0.0f } );
+        igImage((ImTextureRef) { NULL, gui->texture }, (ImVec2) { camera->width, camera->height }, (ImVec2) { 0.0f, 1.0f }, (ImVec2) { 1.0f, 0.0f } );
       igEnd();
     }
   }

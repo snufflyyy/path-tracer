@@ -30,8 +30,6 @@ Window* window_create(u32 width, u32 height, const char* title) {
     return NULL;
   }
 
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -64,8 +62,8 @@ Window* window_create(u32 width, u32 height, const char* title) {
   igCreateContext(NULL);
 
   ImGuiIO* imgui_io = igGetIO_Nil();
+  imgui_io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
   #ifdef IMGUI_HAS_DOCK
-    imgui_io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     imgui_io->ConfigFlags |= ImGuiConfigFlags_DockingEnable;
   #endif
 
