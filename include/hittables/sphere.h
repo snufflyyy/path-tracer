@@ -1,6 +1,6 @@
 #pragma once
 
-#include "types/material.h"
+#include "materials/material.h"
 #include "math/vector3.h"
 #include "types/base_types.h"
 #include "hittables/hittable.h"
@@ -10,10 +10,8 @@ typedef struct Sphere {
 
   Vector3 position;
   f32 radius;
-
-  Material material;
 } Sphere;
 
-Sphere* sphere_create(Vector3 position, f32 radius, Material material);
+Sphere* sphere_create(Vector3 position, f32 radius, Material* material);
 RayHit sphere_ray_hit(Sphere* sphere, Ray ray);
 void sphere_destroy(Sphere* sphere);

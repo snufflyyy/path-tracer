@@ -6,8 +6,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
-#include <math.h>
 
+#include "materials/material.h"
+#include "math/vector2.h"
 #include "math/vector3.h"
 #include "types/color.h"
 #include "world.h"
@@ -15,8 +16,6 @@
 #include "random.h"
 #include "types/rayhit.h"
 #include "camera.h"
-
-static f32 reflectance(f32 cosine, f32 refraction_ratio);
 
 static Color cast_ray(Ray ray, World* world, u64* state, u32 bounce_count) {
   if (bounce_count > world->max_ray_bounces) {
@@ -35,31 +34,13 @@ static Color cast_ray(Ray ray, World* world, u64* state, u32 bounce_count) {
   }
 
   if (closest_hit.hit) {
-    Vector3 origin = closest_hit.hit_position;
-    Vector3 direction = vector3_reflect(ray.direction, closest_hit.normal);
-    if (closest_hit.material.glass) {
-      f32 refraction_ratio = closest_hit.inside ? (1.0f / closest_hit.material.refraction_index) : closest_hit.material.refraction_index;
-      f32 cos_theta = fmin(vector3_dot_product(vector3_scale(vector3_normalize(ray.direction), -1.0f), closest_hit.normal), 1.0f);
-      f32 sin_theta = sqrtf(1.0f - (cos_theta * cos_theta));
+    MaterialGetColorResult result = closest_hit.material->get_color(closest_hit.material, closest_hit, state);
 
-      if (refraction_ratio * sin_theta < 1.0f || reflectance(cos_theta, refraction_ratio) > random_f32(state)) {
-        direction = vector3_refract(vector3_normalize(ray.direction), closest_hit.normal, refraction_ratio);
-      }
-    }
-
-    Color color = color_add(closest_hit.material.albedo, color_scale(closest_hit.material.albedo, closest_hit.material.emission_strength)); // emission
-    Ray new_ray = (Ray) { origin, vector3_add(direction, vector3_scale(vector3_random_unit_vector(state), closest_hit.material.roughness)) };
-
-    return color_mulitply(color, cast_ray(new_ray, world, state, bounce_count + 1));
+    Ray new_ray = (Ray) { closest_hit.hit_position, result.direction };
+    return color_mulitply(result.color, cast_ray(new_ray, world, state, bounce_count + 1));
   }
 
   return world->sky_color;
-}
-
-static f32 reflectance(f32 cosine, f32 refraction_ratio) {
-  f32 reflectance = (1.0f - refraction_ratio) / (1.0f + refraction_ratio);
-  reflectance *= reflectance;
-  return reflectance + (1.0f - reflectance) * powf(1.0f - cosine, 5.0f);
 }
 
 Camera* camera_create(u32 width, u32 height, World* world) {
@@ -70,6 +51,9 @@ Camera* camera_create(u32 width, u32 height, World* world) {
 
   camera->viewport = viewport_create(width, height);
 
+  camera->width = width;
+  camera->height = height;
+  
   u32 framebuffer_length = width * height;
   camera->framebuffer = (Color*) malloc(sizeof(Color) * framebuffer_length);
   if (!camera->framebuffer) {
@@ -79,8 +63,6 @@ Camera* camera_create(u32 width, u32 height, World* world) {
   memset(camera->framebuffer, 0, sizeof(Color) * framebuffer_length);
   camera->sample_count = 0;
   camera->sample_limit = DEFAULT_SAMPLE_LIMIT;
-  camera->width = width;
-  camera->height = height;
 
   camera->render = true;
 
@@ -162,7 +144,23 @@ void camera_render_workers_create(Camera* camera, World* world) {
   }
 }
 
-void camera_clear_framebuffer(Camera* camera) {
+void camera_change_resolution(Camera* camera, u32 new_width, u32 new_height) {
+  usize framebuffer_length = (new_width * new_height);
+  Color* temp = (Color*) realloc(camera->framebuffer, sizeof(Color) * framebuffer_length);
+  if (!temp) {
+    fprintf(stderr, "[ERROR] [CAMERA] Failed to reallocate memory for framebuffer!\n");
+    return;
+  }
+  camera->framebuffer = temp;
+  camera->width = new_width;
+  camera->height = new_height;
+
+  camera->viewport = viewport_create(new_width, new_height);
+
+  camera_clear_framebuffer(camera);
+}
+
+inline void camera_clear_framebuffer(Camera* camera) {
   memset(camera->framebuffer, 0, sizeof(Color) * camera->width * camera->height);
   camera->sample_count = 0;
 }

@@ -58,7 +58,7 @@ void world_remove(World* world, usize index) {
   for (usize i = index; i < world->hittables_count - 1; i++) {
     world->hittables[i] = world->hittables[i + 1];
   }
-  world->hittables--;
+  world->hittables_count--;
 }
 
 void world_destroy(World* world) {

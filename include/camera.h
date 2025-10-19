@@ -42,9 +42,9 @@ typedef struct Camera {
   Viewport viewport;
 
   Color* framebuffer;
+  u32 width, height;
   u32 sample_count;
   u32 sample_limit;
-  u32 width, height;
 
   bool render;
 
@@ -55,6 +55,7 @@ typedef struct Camera {
 Camera* camera_create(u32 width, u32 height, World* world);
 void camera_render_workers_create(Camera* camera, World* world);
 void camera_clear_framebuffer(Camera* camera);
+void camera_change_resolution(Camera* camera, u32 new_width, u32 new_height);
 void camera_render_frame(Camera* camera, World* world);
 void camera_render_export(Camera* camera, World* world);
 void camera_render_worker_render(CameraRenderWorker* worker);

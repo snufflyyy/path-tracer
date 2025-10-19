@@ -6,6 +6,8 @@
 
 typedef struct Hittable {
   Vector3* position;
+  Material* material;
+
   RayHit (*hit)(struct Hittable* hittable, Ray ray);
   void (*destroy)(struct Hittable* hittable);
 } Hittable;

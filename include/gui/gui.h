@@ -5,6 +5,8 @@
 #include "camera.h"
 #include "types/color.h"
 
+#define MATERIAL_TYPES_STRING "Diffuse\0Metal\0Glass\0Emissive\0"
+
 typedef struct GUI {
   Window* window;
   Texture texture;

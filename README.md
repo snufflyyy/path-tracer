@@ -1,17 +1,16 @@
 # Path Tracer
-(Version 0.5 INCOMPLETE)
 
 My amazing CPU (and GPU one day... maybe) path tracer that is written in c with a gui built with glfw, gald (OpenGL), and cimgui.
 
-## Screenshots
+## Screenshots (Version 0.5)
 
 todo
 
-## Final Renders
+## Final Renders (Version 0.5)
 
 todo
 
-## Features
+## Features (Version 0.5)
 
  - Relatively fast when using multithreading
  - Easy to use UI

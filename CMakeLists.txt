@@ -38,6 +38,11 @@ add_executable(
   src/math/vector3.c
   src/math/ray.c
 
+  src/materials/diffuse.c
+  src/materials/metal.c
+  src/materials/glass.c
+  src/materials/emission.c
+
   src/hittables/sphere.c
 
   src/gui/gui.c

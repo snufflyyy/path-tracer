@@ -3,10 +3,10 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <math.h>
+#include <stdio.h>
 
 #include "hittables/hittable.h"
-#include "types/material.h"
+#include "materials/material.h"
 #include "math/ray.h"
 #include "math/vector3.h"
 #include "types/rayhit.h"
@@ -14,17 +14,22 @@
 static RayHit hit(Hittable* hittable, Ray ray);
 static void destroy(Hittable* hittable);
 
-Sphere* sphere_create(Vector3 position, f32 radius, Material material) {
+Sphere* sphere_create(Vector3 position, f32 radius, Material* material) {
   Sphere* sphere = (Sphere*) malloc(sizeof(Sphere));
+  if (!sphere) {
+    fprintf(stderr, "[ERROR] [HITTABLE] [SPHERE] Failed to allocate memory for sphere!\n");
+    return NULL;
+  }
 
-  sphere->hittable.position = &sphere->position;
-  sphere->hittable.hit = hit;
-  sphere->hittable.destroy = destroy;
+  sphere->hittable = (Hittable) {
+    .position = &sphere->position,
+    .material = material,
+    .hit = hit,
+    .destroy = destroy
+  };
 
   sphere->position = position;
   sphere->radius = radius;
-
-  sphere->material = material;
 
   return sphere;
 }
@@ -60,16 +65,18 @@ RayHit sphere_ray_hit(Sphere* sphere, Ray ray) {
 
   RayHit rayhit = {
     .hit = true,
+    .ray = ray,
     .t = t,
     .hit_position = hit_position,
     .normal = vector3_normalize(vector3_subtract(hit_position, sphere->position)),
     .inside = inside,
-    .material = sphere->material
+    .material = sphere->hittable.material
   };
 
   return rayhit;
 }
 
 void sphere_destroy(Sphere* sphere) {
+  free(sphere->hittable.material);
   free(sphere);
 }
