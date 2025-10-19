@@ -90,7 +90,7 @@ Camera* camera_create(u32 width, u32 height, World* world) {
   return camera;
 }
 
-void* camera_render_worker_work(void* thread_data) {
+static void* camera_render_worker_work(void* thread_data) {
   CameraRenderWorkerData* data = (CameraRenderWorkerData*) thread_data;
 
   while (true) {
@@ -162,38 +162,6 @@ void camera_render_workers_create(Camera* camera, World* world) {
   }
 }
 
-void camera_render_worker_render(CameraRenderWorker* worker) {
-  pthread_mutex_lock(&worker->thread_data.lock);
-
-  worker->thread_data.work_done = false;
-  worker->thread_data.work_ready = true;
-  pthread_cond_signal(&worker->thread_data.cond);
-  pthread_mutex_unlock(&worker->thread_data.lock);
-}
-
-void camera_render_worker_wait(CameraRenderWorker* worker) {
-  pthread_mutex_lock(&worker->thread_data.lock);
-  while (!worker->thread_data.work_done) {
-    pthread_cond_wait(&worker->thread_data.cond, &worker->thread_data.lock);
-  }
-  pthread_mutex_unlock(&worker->thread_data.lock);
-}
-
-void camera_render_workers_destroy(Camera* camera) {
-  for (usize i = 0; i < camera->thread_count; i++) {
-    pthread_mutex_lock(&camera->render_workers[i].thread_data.lock);
-    camera->render_workers[i].thread_data.alive = false;
-    camera->render_workers[i].thread_data.work_ready = true;
-    pthread_cond_signal(&camera->render_workers[i].thread_data.cond);
-    pthread_mutex_unlock(&camera->render_workers[i].thread_data.lock);
-
-    pthread_join(camera->render_workers[i].thread, NULL);
-
-    pthread_mutex_destroy(&camera->render_workers[i].thread_data.lock);
-    pthread_cond_destroy(&camera->render_workers[i].thread_data.cond);
-  }
-}
-
 void camera_clear_framebuffer(Camera* camera) {
   memset(camera->framebuffer, 0, sizeof(Color) * camera->width * camera->height);
   camera->sample_count = 0;
@@ -246,6 +214,38 @@ void camera_render_export(Camera* camera, World* world) {
   }
 
   camera->sample_count = camera->sample_limit;
+}
+
+void camera_render_worker_render(CameraRenderWorker* worker) {
+  pthread_mutex_lock(&worker->thread_data.lock);
+
+  worker->thread_data.work_done = false;
+  worker->thread_data.work_ready = true;
+  pthread_cond_signal(&worker->thread_data.cond);
+  pthread_mutex_unlock(&worker->thread_data.lock);
+}
+
+void camera_render_worker_wait(CameraRenderWorker* worker) {
+  pthread_mutex_lock(&worker->thread_data.lock);
+  while (!worker->thread_data.work_done) {
+    pthread_cond_wait(&worker->thread_data.cond, &worker->thread_data.lock);
+  }
+  pthread_mutex_unlock(&worker->thread_data.lock);
+}
+
+void camera_render_workers_destroy(Camera* camera) {
+  for (usize i = 0; i < camera->thread_count; i++) {
+    pthread_mutex_lock(&camera->render_workers[i].thread_data.lock);
+    camera->render_workers[i].thread_data.alive = false;
+    camera->render_workers[i].thread_data.work_ready = true;
+    pthread_cond_signal(&camera->render_workers[i].thread_data.cond);
+    pthread_mutex_unlock(&camera->render_workers[i].thread_data.lock);
+
+    pthread_join(camera->render_workers[i].thread, NULL);
+
+    pthread_mutex_destroy(&camera->render_workers[i].thread_data.lock);
+    pthread_cond_destroy(&camera->render_workers[i].thread_data.cond);
+  }
 }
 
 void camera_destroy(Camera* camera) {

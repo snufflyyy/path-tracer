@@ -4,7 +4,6 @@
 #include <stdio.h>
 
 #include "hittables/hittable.h"
-#include "hittables/sphere.h"
 
 World world_create() {
   World world = {0};
@@ -63,6 +62,10 @@ void world_remove(World* world, usize index) {
 }
 
 void world_destroy(World* world) {
+  for (usize i = 0; i < world->hittables_count; i++) {
+    world->hittables[i]->destroy(world->hittables[i]);
+  }
+
   free(world->hittables);
   world->hittables = NULL;
 }

@@ -15,3 +15,5 @@ typedef struct Sphere {
 } Sphere;
 
 Sphere* sphere_create(Vector3 position, f32 radius, Material material);
+RayHit sphere_ray_hit(Sphere* sphere, Ray ray);
+void sphere_destroy(Sphere* sphere);

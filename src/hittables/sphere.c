@@ -11,13 +11,15 @@
 #include "math/vector3.h"
 #include "types/rayhit.h"
 
-RayHit sphere_ray_hit(Hittable* hittable, Ray ray);
+static RayHit hit(Hittable* hittable, Ray ray);
+static void destroy(Hittable* hittable);
 
 Sphere* sphere_create(Vector3 position, f32 radius, Material material) {
   Sphere* sphere = (Sphere*) malloc(sizeof(Sphere));
 
   sphere->hittable.position = &sphere->position;
-  sphere->hittable.hit = sphere_ray_hit;
+  sphere->hittable.hit = hit;
+  sphere->hittable.destroy = destroy;
 
   sphere->position = position;
   sphere->radius = radius;
@@ -27,9 +29,15 @@ Sphere* sphere_create(Vector3 position, f32 radius, Material material) {
   return sphere;
 }
 
-RayHit sphere_ray_hit(Hittable* hittable, Ray ray) {
-  Sphere* sphere = (Sphere*) hittable;
+inline static RayHit hit(Hittable* hittable, Ray ray) {
+  return sphere_ray_hit((Sphere*) hittable, ray);
+}
 
+inline static void destroy(Hittable* hittable) {
+  sphere_destroy((Sphere*) hittable);
+}
+
+RayHit sphere_ray_hit(Sphere* sphere, Ray ray) {
   Vector3 oc = vector3_subtract(sphere->position, ray.origin);
   f32 a = vector3_length_squared(ray.direction);
   f32 h = vector3_dot_product(ray.direction, oc);
@@ -60,4 +68,8 @@ RayHit sphere_ray_hit(Hittable* hittable, Ray ray) {
   };
 
   return rayhit;
+}
+
+void sphere_destroy(Sphere* sphere) {
+  free(sphere);
 }

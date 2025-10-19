@@ -1,0 +1,3 @@
+leak:libgtk-3
+leak:libdecor
+leak:libfontconfig
