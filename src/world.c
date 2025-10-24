@@ -15,6 +15,7 @@ World world_create() {
     return (World) {0};
   }
 
+  world.direct_light_sampling = false;
   world.max_ray_bounces = DEFAULT_MAX_RAY_BOUNCES;
   world.sky_color = DEFAULT_SKY_COLOR;
 
@@ -49,12 +50,7 @@ void world_remove(World* world, usize index) {
     world->capacity /= WORLD_SCALE_FACTOR;
   }
 
-  if (index > world->hittables_count) { return; }
-  if (index == world->hittables_count - 1) {
-    world->hittables_count--;
-    return;
-  }
-
+  world->hittables[index]->destroy(world->hittables[index]);
   for (usize i = index; i < world->hittables_count - 1; i++) {
     world->hittables[i] = world->hittables[i + 1];
   }

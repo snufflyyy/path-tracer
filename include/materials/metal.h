@@ -12,5 +12,6 @@ typedef struct Metal {
 } Metal;
 
 Metal* metal_material_create(Color albedo, f32 roughness);
-MaterialGetColorResult metal_material_get_color(Metal* metal, RayHit rayhit, u64* state);
+Color metal_material_get_color(Metal* metal);
+Vector3 metal_material_get_direction(Metal* metal, RayHit rayhit, u64* state);
 void metal_material_destroy(Metal* metal);

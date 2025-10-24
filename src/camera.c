@@ -10,6 +10,7 @@
 #include "materials/material.h"
 #include "math/vector2.h"
 #include "math/vector3.h"
+#include "tonemapping.h"
 #include "types/color.h"
 #include "world.h"
 #include "types/base_types.h"
@@ -17,11 +18,35 @@
 #include "types/rayhit.h"
 #include "camera.h"
 
+static RayHit cast_indirect(Ray ray, World* world, u64* state);
+static RayHit cast_direct(Ray ray, World* world, u64* state);
+
 static Color cast_ray(Ray ray, World* world, u64* state, u32 bounce_count) {
-  if (bounce_count > world->max_ray_bounces) {
-    return (Color) { 0.0f, 0.0f, 0.0f };
+  Color result = world->sky_color;
+
+  for (usize b = 0; b < world->max_ray_bounces; b++) {
+    RayHit indirect = cast_indirect(ray, world, state);
+    if (!indirect.hit) { return result; }
+
+    ray = (Ray) {
+      .origin = indirect.hit_position,
+      .direction = indirect.material->get_direction(indirect.material, indirect, state)
+    };
+
+    result = color_mulitply(result, indirect.material->get_color(indirect.material));
+
+    if (world->direct_light_sampling) {
+      RayHit direct = cast_direct(ray, world, state);
+      if (direct.hit) {
+        result = color_add(result, direct.material->get_color(direct.material));
+      }
+    }
   }
 
+  return result;
+}
+
+static RayHit cast_indirect(Ray ray, World* world, u64* state) {
   RayHit closest_hit = {0};
   f32 closest_t = FLT_MAX;
 
@@ -33,18 +58,48 @@ static Color cast_ray(Ray ray, World* world, u64* state, u32 bounce_count) {
     }
   }
 
-  if (closest_hit.hit) {
-    MaterialGetColorResult result = closest_hit.material->get_color(closest_hit.material, closest_hit, state);
+  return closest_hit;
+}
 
-    Ray new_ray = (Ray) { closest_hit.hit_position, result.direction };
-    return color_mulitply(result.color, cast_ray(new_ray, world, state, bounce_count + 1));
+// todo: do more reseach on direct light sampling and fix this function
+static RayHit cast_direct(Ray ray, World* world, u64* state) {
+  f32 closest_t;
+
+  for (usize e = 0; e < world->hittables_count; e++) {
+    if (world->hittables[e]->material->type != EMISSIVE) { continue; }
+
+    Vector3 random_point_on_emissive = random_hittable_position(state, world->hittables[e]); 
+    ray.direction = vector3_subtract(random_point_on_emissive, ray.origin);
+
+    f32 distance = vector3_length(ray.direction);
+    closest_t = distance;
+
+    for (usize i = 0; i < world->hittables_count; i++) {
+      RayHit shadow_rayhit = world->hittables[i]->hit(world->hittables[i], ray);
+      if (shadow_rayhit.hit && shadow_rayhit.t > 0.001f && shadow_rayhit.t < closest_t && i != e) {
+        closest_t = shadow_rayhit.t; 
+      }
+    }
+
+    if (closest_t >= distance) {
+      return (RayHit) {
+        .hit = true,
+        .hit_position = random_point_on_emissive,
+        .material = world->hittables[e]->material,
+        .t = distance
+      };
+    }
   }
 
-  return world->sky_color;
+  return (RayHit) {0};
 }
 
 Camera* camera_create(u32 width, u32 height, World* world) {
   Camera* camera = (Camera*) malloc(sizeof(Camera));
+  if (!camera) {
+    fprintf(stderr, "[ERROR] [CAMERA] Failed to allocate memory for camera!\n");
+    return NULL;
+  }
 
   camera->position = (Vector3) { 0.0f, 0.0f, 0.0f };
   camera->focal_length = 1.0f;
@@ -63,6 +118,7 @@ Camera* camera_create(u32 width, u32 height, World* world) {
   memset(camera->framebuffer, 0, sizeof(Color) * framebuffer_length);
   camera->sample_count = 0;
   camera->sample_limit = DEFAULT_SAMPLE_LIMIT;
+  camera->tonemapping_operator = (ToneMappingOperator) { CLAMP, 1.0f };
 
   camera->render = true;
 

@@ -2,6 +2,7 @@
 
 #include "types/base_types.h"
 
-typedef struct Vector2 {
-  f32 x, y;
+typedef union Vector2 {
+  struct { f32 x, y; };
+  f32 data[2];
 } Vector2;

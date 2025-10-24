@@ -13,5 +13,6 @@ typedef struct Glass {
 } Glass;
 
 Glass* glass_material_create(Color albedo, f32 refraction_index, f32 roughness);
-MaterialGetColorResult glass_material_get_color(Glass* glass_material_get_color, RayHit rayhit, u64* state);
+Color glass_material_get_color(Glass* glass);
+Vector3 glass_material_get_direction(Glass* glass, RayHit rayhit, u64* state);
 void glass_material_destroy(Glass* glass);

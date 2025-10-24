@@ -2,6 +2,9 @@
 
 #include <glad/glad.h>
 
+#include "types/color.h"
+#include "types/base_types.h"
+
 Texture texture_create() {
   GLuint texture;
   glGenTextures(1, &texture);
@@ -15,15 +18,18 @@ Texture texture_create() {
   return texture;
 }
 
-void texture_bind(Texture texture) {
+inline void texture_bind(Texture texture) {
   glBindTexture(GL_TEXTURE_2D, texture);
 }
 
-void texture_set_colorRGB_buffer(Texture texture, ColorRGB* buffer, u32 width, u32 height) {
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, buffer);
-  glGenerateMipmap(GL_TEXTURE_2D);
+inline void texture_unbind() {
+  glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void texture_destroy(Texture texture) {
+inline void texture_set_colorRGB_buffer(Texture texture, ColorRGB* buffer, u32 width, u32 height) {
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, buffer);
+}
+
+inline void texture_destroy(Texture texture) {
   glDeleteTextures(1, &texture);
 }

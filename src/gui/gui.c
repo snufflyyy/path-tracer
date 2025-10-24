@@ -1,21 +1,31 @@
 #include "gui/gui.h"
 
+#include <stdbool.h>
 #include <stdlib.h>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-#define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
 #include <cimgui.h>
 #include <cimgui_impl.h>
 
+#include "hittables/hittable.h"
 #include "image.h"
 #include "hittables/sphere.h"
+#include "hittables/plane.h"
 #include "materials/material.h"
 #include "materials/diffuse.h"
 #include "materials/metal.h"
 #include "materials/glass.h"
-#include "materials/emission.h"
+#include "materials/emissive.h"
+#include "math/vector3.h"
+#include "tonemapping.h"
+
+static void gui_update_main_menu_bar(GUI* gui);
+static void gui_update_window_export_warning(GUI* gui, Camera* camera, World* world);
+static void gui_update_window_render(GUI* gui, Camera* camera);
+static void gui_update_window_camera(GUI* gui, Camera* camera, World* world, bool* reset_camera_framebuffer);
+static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_framebuffer);
 
 GUI gui_create(u32 width, u32 height) {
   GUI gui = {0};
@@ -33,14 +43,10 @@ GUI gui_create(u32 width, u32 height) {
   gui.show_render_window = true;
   gui.show_export_warning_window = false;
 
+  gui.export_image_type = HDR;
+
   return gui;
 }
-
-static void gui_update_main_menu_bar(GUI* gui);
-static void gui_update_window_export_warning(GUI* gui, Camera* camera, World* world);
-static void gui_update_window_render(GUI* gui, Camera* camera);
-static void gui_update_window_camera(GUI* gui, Camera* camera, World* world, bool* reset_camera_framebuffer);
-static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_framebuffer);
 
 void gui_update(GUI* gui, Camera* camera, World* world) {
   window_update(gui->window);
@@ -48,19 +54,12 @@ void gui_update(GUI* gui, Camera* camera, World* world) {
   bool reset_camera_framebuffer = false;
 
   window_imgui_begin_frame();
-
-  gui_update_main_menu_bar(gui);
-  if (gui->show_export_warning_window) { 
-    camera->render = false;
-    gui_update_window_export_warning(gui, camera, world); 
-  } else {
-    camera->render = true;
-  }
-
-  igDockSpaceOverViewport(igGetID_Str("dockspace"), NULL, ImGuiDockNodeFlags_PassthruCentralNode, NULL);
-  if (gui->show_render_window) { gui_update_window_render(gui, camera); }
-  if (gui->show_camera_window) { gui_update_window_camera(gui, camera, world, &reset_camera_framebuffer); }
-  if (gui->show_world_window) { gui_update_window_world(gui, world, &reset_camera_framebuffer); }
+    gui_update_main_menu_bar(gui);
+    if (gui->show_export_warning_window) { gui_update_window_export_warning(gui, camera, world); }
+    igDockSpaceOverViewport(igGetID_Str("dockspace"), NULL, ImGuiDockNodeFlags_PassthruCentralNode, NULL);
+    if (gui->show_render_window) { gui_update_window_render(gui, camera); }
+    if (gui->show_camera_window) { gui_update_window_camera(gui, camera, world, &reset_camera_framebuffer); }
+    if (gui->show_world_window) { gui_update_window_world(gui, world, &reset_camera_framebuffer); }
   window_imgui_end_frame();
 
   if (reset_camera_framebuffer) { camera_clear_framebuffer(camera); }
@@ -69,7 +68,7 @@ void gui_update(GUI* gui, Camera* camera, World* world) {
 static void gui_update_main_menu_bar(GUI* gui) {
   igBeginMainMenuBar();
     if (igBeginMenu("File", true)) {
-      if (igMenuItem_Bool("Export JPG", NULL, false, true)) {
+      if (igMenuItem_Bool("Export", NULL, false, true)) {
         gui->show_export_warning_window = true;
       }
       if (igMenuItem_Bool("Exit", NULL, false, true)) {
@@ -88,11 +87,19 @@ static void gui_update_main_menu_bar(GUI* gui) {
 
 static void gui_update_window_export_warning(GUI* gui, Camera* camera, World* world) {
   igBegin("Exporting", &gui->show_export_warning_window, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize);
-    igText("Exporting WILL freeze the GUI until the render is complete");
+    igCombo_Str("Export Type", (s32*) &gui->export_image_type, IMAGE_TYPES_STRING, 0);
+
+    igSeparator();
+
+    igText("Exporting WILL freeze the GUI until the render is complete.");
     igText("Are you sure you want to continue?");
     if (igSmallButton("Yes")) {
       camera_render_export(camera, world);
-      image_create("output.jpg", camera->framebuffer, camera->sample_count, camera->width, camera->height);
+
+      switch (gui->export_image_type) {
+        case HDR: image_create_hdr("output.hdr", camera); break;
+        case JPG: image_create_jpg("output.jpg", camera); break;
+      }
 
       gui->show_export_warning_window = false;
     }
@@ -107,9 +114,9 @@ static void gui_update_window_render(GUI* gui, Camera* camera) {
   if (camera->render || camera->sample_count <= camera->sample_limit) {
     usize framebuffer_length = camera->width * camera->height;
     for (usize i = 0; i < framebuffer_length; i++) {
-      Color color = color_scale(camera->framebuffer[i], 1.0f / camera->sample_count);
-      gui->framebufferRGB[i] = color_convert_to_rgb(color);
+      gui->framebufferRGB[i] = tonemapping(camera->tonemapping_operator, color_scale(camera->framebuffer[i], 1.0f / camera->sample_count));
     }
+
     texture_set_colorRGB_buffer(gui->texture, gui->framebufferRGB, camera->width, camera->height);
   }
 
@@ -127,9 +134,7 @@ static void gui_update_window_camera(GUI* gui, Camera* camera, World* world, boo
 
     igSeparatorText("Settings");
 
-    f32 position[3] = { camera->position.x, camera->position.y, camera->position.z };
-    if (igDragFloat3("Position", position, 0.1f, -1000.0f, 1000.0f, "%0.2f", 0)) {
-      camera->position = (Vector3) { position[0], position[1], position[2] };
+    if (igDragFloat3("Position", camera->position.data, 0.1f, -1000.0f, 1000.0f, "%0.2f", 0)) {
       *reset_camera_framebuffer = true;
     }
     if (igDragFloat("Focal Length", &camera->focal_length, 0.05f, 0.0f, 1000.0f, "%0.2f", 0)) {
@@ -158,6 +163,14 @@ static void gui_update_window_camera(GUI* gui, Camera* camera, World* world, boo
         *reset_camera_framebuffer = true;
       }
     }
+    igCombo_Str("Tonemapping", (s32*) &camera->tonemapping_operator, TONEMAPPING_OPERATORS_STRING, 0);
+    switch (camera->tonemapping_operator.type) {
+      case CLAMP: break; // clamp doesnt use any variables
+      case REINHARD: {
+        igDragFloat("Max White", &camera->tonemapping_operator.max_white, 0.1f, 0.0f, 1000.0f, "%0.2f", 0);
+      } break;
+    }
+
     if (igSliderInt("Thread Count", (s32*) &camera->thread_count, 1, MAX_THREAD_COUNT, "%u", 0)) {
       camera_render_workers_destroy(camera);
       camera_render_workers_create(camera, world);
@@ -174,8 +187,10 @@ static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_f
   igBegin("World", &gui->show_world_window, 0);
     igSeparatorText("Settings");
 
+    if (igCheckbox("Direct Light Sampling (BROKEN)", &world->direct_light_sampling)) {
+      *reset_camera_framebuffer = true;
+    }
     igInputInt("Max Ray Bounces", (s32*) &world->max_ray_bounces, 1, 1, 0);
-
     f32 sky_color[3] = { world->sky_color.red, world->sky_color.green, world->sky_color.blue };
     if (igColorEdit3("Sky Color", sky_color, ImGuiColorEditFlags_NoPicker)) {
       world->sky_color = (Color) { sky_color[0], sky_color[1], sky_color[2] };
@@ -186,16 +201,36 @@ static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_f
 
     for (usize i = 0; i < world->hittables_count; i++) {
       igPushID_Int(i);
-      if (igCollapsingHeader_BoolPtr("Sphere", NULL, 0)) {
+
+      Hittable* hittable = world->hittables[i];
+
+      if (igCollapsingHeader_BoolPtr(hittable->identifer, NULL, 0)) {
         igSeparatorText("Settings");
 
-        f32 position[3] = { world->hittables[i]->position->x, world->hittables[i]->position->y,  world->hittables[i]->position->z };
-        if (igDragFloat3("Sphere Position", position, 0.1f, -1000.0f, 1000.0f, "%0.2f", 0)) {
-          *world->hittables[i]->position = (Vector3) { position[0], position[1], position[2] };
+        if (igDragFloat3("Position", hittable->position->data, 0.1f, -1000.0f, 1000.0f, "%0.2f", 0)) {
           *reset_camera_framebuffer = true;
         }
-        if (igDragFloat("Radius", &((Sphere*) world->hittables[i])->radius, 0.1f, -1000.0f, 1000.0f, "%0.2f", 0)) {
-          *reset_camera_framebuffer = true;
+
+        switch (hittable->type) {
+          case SPHERE: {
+            Sphere* sphere = (Sphere*) hittable;
+
+            if (igDragFloat("Radius", &sphere->radius, 0.1f, -1000.0f, 1000.0f, "%0.2f", 0)) {
+              *reset_camera_framebuffer = true;
+            }
+          } break;
+          case PLANE: {
+            Plane* plane = (Plane*) hittable;
+
+            if (igDragFloat3("Normal", plane->normal.data, 0.01f, -1.0f, 1.0f, "%0.2f", 0)) {
+              plane->normal = vector3_normalize(plane->normal);
+              plane_update_tangent_vectors(plane);
+              *reset_camera_framebuffer = true;
+            }
+            if (igDragFloat2("Size", plane->size.data, 0.1f, 0.0f, 1000.0f, "%0.2f", 0)) {
+              *reset_camera_framebuffer = true;
+            }
+          } break;
         }
 
         igSeparator();
@@ -207,14 +242,22 @@ static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_f
         }
 
         igSeparatorText("Material");
+        Material* material = world->hittables[i]->material;
 
-        MaterialType type = world->hittables[i]->material->type;
-        if (igCombo_Str("Material Type", (s32*) &type, MATERIAL_TYPES_STRING, 0)) {
-          // this is very unsafe and only works because every CURRENT material has an albedo and it is located in the same place
-          Color old_albedo = ((Diffuse*) world->hittables[i]->material)->albedo;
-          world->hittables[i]->material->destroy(world->hittables[i]->material);
+        MaterialType new_type = material->type;
+        if (igCombo_Str("Material Type", (s32*) &new_type, MATERIAL_TYPES_STRING, 0)) {
+          Color old_albedo = (Color) { 1.0f, 1.0f, 1.0f };
+          switch (material->type) {
+            case DIFFUSE: old_albedo = ((Diffuse*) material)->albedo; break;
+            case METAL: old_albedo = ((Metal*) material)->albedo; break;
+            case GLASS: old_albedo = ((Glass*) material)->albedo; break;
+            case EMISSIVE: old_albedo = ((Emissive*) material)->albedo; break;
+          }
 
-          switch (type) {
+          material->destroy(world->hittables[i]->material);
+          material = world->hittables[i]->material;
+
+          switch (new_type) {
             case DIFFUSE: {
               world->hittables[i]->material = (Material*) diffuse_material_create(old_albedo);
             } break;
@@ -229,14 +272,15 @@ static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_f
             } break;
           }
 
+          material = world->hittables[i]->material;
           *reset_camera_framebuffer = true;
         }
 
         igSeparator();
 
-        switch(world->hittables[i]->material->type) {
+        switch(hittable->material->type) {
           case DIFFUSE: {
-            Diffuse* diffuse = (Diffuse*) world->hittables[i]->material;
+            Diffuse* diffuse = (Diffuse*) material;
 
             f32 albedo[3] = { diffuse->albedo.red, diffuse->albedo.green, diffuse->albedo.blue };
             if (igColorEdit3("Albedo", albedo, 0)) {
@@ -245,7 +289,7 @@ static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_f
             }
           } break;
           case METAL: {
-            Metal* metal = (Metal*) world->hittables[i]->material;
+            Metal* metal = (Metal*) material;
 
             f32 albedo[3] = { metal->albedo.red, metal->albedo.green, metal->albedo.blue };
             if (igColorEdit3("Albedo", albedo, 0)) {
@@ -257,7 +301,7 @@ static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_f
             }
           } break;
           case GLASS: {
-            Glass* glass = (Glass*) world->hittables[i]->material;
+            Glass* glass = (Glass*) material;
 
             f32 albedo[3] = { glass->albedo.red, glass->albedo.green, glass->albedo.blue };
             if (igColorEdit3("Albedo", albedo, 0)) {
@@ -272,14 +316,14 @@ static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_f
             }
           } break;
           case EMISSIVE: {
-            Emissive* emissive = (Emissive*) world->hittables[i]->material;
+            Emissive* emissive = (Emissive*) material;
 
             f32 albedo[3] = { emissive->albedo.red, emissive->albedo.green, emissive->albedo.blue };
             if (igColorEdit3("Albedo", albedo, 0)) {
               emissive->albedo = (Color) { albedo[0], albedo[1], albedo[2] };
               *reset_camera_framebuffer = true;
             }
-            if (igDragFloat("Emission Strength", &emissive->emission_strength, 0.1f, 0.0f, 50.0f, "%0.2f", 0)) {
+            if (igDragFloat("Emission Strength", &emissive->emission_strength, 0.1f, 0.0f, 1000.0f, "%0.2f", 0)) {
               *reset_camera_framebuffer = true;
             }
           } break;
@@ -290,7 +334,7 @@ static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_f
     igSeparator();
 
     if (igSmallButton("Add")) {
-      world_add(world, (Hittable*) sphere_create((Vector3) { 0.0f, 0.0f, 0.0f }, 1.0f, (Material*)  diffuse_material_create((Color) { 1.0f, 1.0f, 1.0f })));
+      world_add(world, (Hittable*) sphere_create((Vector3) { 0.0f, 0.0f, 0.0f }, 1.0f, (Material*)  diffuse_material_create((Color) { 0.75f, 0.75f, 0.75f })));
       *reset_camera_framebuffer = true;
     }
   igEnd();

@@ -1,9 +1,10 @@
 #pragma once
 
-#include "materials/material.h"
+#include "hittables/hittable.h"
 #include "math/vector3.h"
 #include "types/base_types.h"
-#include "hittables/hittable.h"
+#include "materials/material.h"
+#include "types/rayhit.h"
 
 typedef struct Sphere {
   Hittable hittable;

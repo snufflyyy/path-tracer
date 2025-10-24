@@ -1,11 +1,10 @@
-#include "hittables/hittable.h"
-#include "math/vector3.h"
-#include "materials/material.h"
-#include "materials/diffuse.h"
-#include "materials/glass.h"
 #include "world.h"
 #include "camera.h"
-#include "hittables/sphere.h"
+#include "materials/material.h"
+#include "materials/emissive.h"
+#include "materials/diffuse.h"
+#include "hittables/hittable.h"
+#include "hittables/plane.h"
 #include "gui/gui.h"
 
 #define CAMERA_WIDTH 640
@@ -17,14 +16,20 @@
 int main() {
   World world = world_create();
   Camera* camera = camera_create(CAMERA_WIDTH, CAMERA_HEIGHT, &world);
-  camera->position = (Vector3) { 0.0f, 0.0f, 5.0f };
+  camera->position = (Vector3) { 0.0f, 5.0f, 10.0f };
 
-  // hittables will destroy materials when the hittlable's destroy function is run
-  Glass* glass_white = glass_material_create((Color) { 1.0f, 1.0f, 1.0f }, 1.0f / 1.33f, 0.0f );
-  Diffuse* diffuse_gray = diffuse_material_create((Color) { 0.75f, 0.75f, 0.75f });
+  Diffuse* white = diffuse_material_create((Color) { 1.0f, 1.0f, 1.0f });
+  Diffuse* red = diffuse_material_create((Color) { 0.8f, 0.1f, 0.1f });
+  Diffuse* green = diffuse_material_create((Color) { 0.1f, 0.8f, 0.1f });
+  Emissive* light = emissive_material_create((Color) { 1.0f, 1.0f, 1.0f }, 10.0f);
 
-  world_add(&world, (Hittable*) sphere_create((Vector3) { 0.0f, 0.0f, 0.0f }, 1.0f, (Material*) glass_white));
-  world_add(&world, (Hittable*) sphere_create((Vector3) { 0.0f, -101.0f, 0.0f }, 100.0f, (Material*) diffuse_gray));
+  world_add(&world, (Hittable*) plane_create((Vector3) { 0.0f, 0.0f, 0.0f }, (Vector3) { 0.0f, 1.0f, 0.0f }, (Vector2) { 10.0f, 10.0f }, (Material*) white)); // ground
+  world_add(&world, (Hittable*) plane_create((Vector3) { -5.0f, 5.0f, 0.0f }, (Vector3) { 1.0f, 0.0f, 0.0f }, (Vector2) { 10.0f, 10.0f }, (Material*) red)); // left
+  world_add(&world, (Hittable*) plane_create((Vector3) { 5.0f, 5.0f, 0.0f }, (Vector3) { -1.0f, 0.0f, 0.0f }, (Vector2) { 10.0f, 10.0f }, (Material*) green)); // right
+  world_add(&world, (Hittable*) plane_create((Vector3) { 0.0f, 5.0f, -5.0f }, (Vector3) { 0.0f, 0.0f, 1.0f }, (Vector2) { 10.0f, 10.0f }, (Material*) white)); // front
+  world_add(&world, (Hittable*) plane_create((Vector3) { 0.0f, 5.0f, 5.0f }, (Vector3) { 0.0f, 0.0f, -1.0f }, (Vector2) { 10.0f, 10.0f }, (Material*) white)); // back
+  world_add(&world, (Hittable*) plane_create((Vector3) { 0.0f, 10.0f, 0.0f }, (Vector3) { 0.0f, -1.0f, 0.0f }, (Vector2) { 10.0f, 10.0f }, (Material*) white)); // ceiling
+  world_add(&world, (Hittable*) plane_create((Vector3) { 0.0, 9.99f, 0.0f }, (Vector3) { 0.0f, -1.0f, 0.0f }, (Vector2) { 5.0f, 2.0f }, (Material*) light)); // light
 
   GUI gui = gui_create(WINDOW_WIDTH, WINDOW_HEIGHT);
   while (window_is_running(gui.window)) {

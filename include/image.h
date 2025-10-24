@@ -1,5 +1,11 @@
 #pragma once
 
-#include "types/color.h"
+#include "camera.h"
 
-void image_create(const char* filename, Color* framebuffer, u32 sample_count, u32 width, u32 height);
+typedef enum ImageType {
+  HDR,
+  JPG
+} ImageType;
+
+void image_create_jpg(const char* filename, Camera* camera);
+void image_create_hdr(const char* filename, Camera* camera);

@@ -15,7 +15,7 @@ todo
  - Relatively fast when using multithreading
  - Easy to use UI
  - Scene saving and loading
- - Material system
+ - Extendable Material system
  - Multithreading
  - Image (JPG) exporting
  - todo

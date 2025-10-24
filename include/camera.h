@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <pthread.h>
 
+#include "tonemapping.h"
 #include "world.h"
 #include "types/base_types.h"
 #include "math/vector3.h"
@@ -45,6 +46,8 @@ typedef struct Camera {
   u32 width, height;
   u32 sample_count;
   u32 sample_limit;
+
+  ToneMappingOperator tonemapping_operator;
 
   bool render;
 

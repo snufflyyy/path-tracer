@@ -32,6 +32,7 @@ add_executable(
   src/image.c
   src/random.c
   src/viewport.c
+  src/tonemapping.c
   src/camera.c
   src/world.c
 
@@ -41,9 +42,10 @@ add_executable(
   src/materials/diffuse.c
   src/materials/metal.c
   src/materials/glass.c
-  src/materials/emission.c
+  src/materials/emissive.c
 
   src/hittables/sphere.c
+  src/hittables/plane.c
 
   src/gui/gui.c
   src/gui/window.c

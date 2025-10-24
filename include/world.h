@@ -4,7 +4,7 @@
 #include "types/base_types.h"
 #include "types/color.h"
 
-#define WORLD_STARTING_CAPACITY 10
+#define WORLD_STARTING_CAPACITY 5
 #define WORLD_SCALE_FACTOR 2.0
 
 #define DEFAULT_MAX_RAY_BOUNCES 10
@@ -15,6 +15,7 @@ typedef struct World {
   u32 hittables_count;
   u32 capacity;
 
+  bool direct_light_sampling;
   u32 max_ray_bounces;
   Color sky_color;
 } World;

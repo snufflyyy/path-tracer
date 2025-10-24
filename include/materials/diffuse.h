@@ -7,9 +7,10 @@
 typedef struct Diffuse {
   Material material;
 
-  Color albedo; 
+  Color albedo;
 } Diffuse;
 
 Diffuse* diffuse_material_create(Color albedo);
-MaterialGetColorResult diffuse_material_get_color(Diffuse* diffuse, RayHit rayhit, u64* state);
+Color diffuse_material_get_color(Diffuse* diffuse);
+Vector3 diffuse_material_get_direction(Diffuse* diffuse, RayHit rayhit, u64* state);
 void diffuse_material_destroy(Diffuse* diffuse);

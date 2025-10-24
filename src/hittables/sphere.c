@@ -1,15 +1,16 @@
 #include "hittables/sphere.h"
 
-#include <math.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
+#include <stdbool.h>
 
-#include "hittables/hittable.h"
-#include "materials/material.h"
-#include "math/ray.h"
-#include "math/vector3.h"
 #include "types/rayhit.h"
+#include "hittables/hittable.h"
+#include "math/ray.h"
+#include "types/base_types.h"
+#include "materials/material.h"
+#include "math/vector3.h"
 
 static RayHit hit(Hittable* hittable, Ray ray);
 static void destroy(Hittable* hittable);
@@ -22,6 +23,8 @@ Sphere* sphere_create(Vector3 position, f32 radius, Material* material) {
   }
 
   sphere->hittable = (Hittable) {
+    .type = SPHERE,
+    .identifer = "Sphere",
     .position = &sphere->position,
     .material = material,
     .hit = hit,

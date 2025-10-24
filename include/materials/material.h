@@ -12,14 +12,11 @@ typedef enum MaterialType {
   EMISSIVE
 } MaterialType;
 
-typedef struct MaterialGetColorResult {
-  Color color;
-  Vector3 direction;
-} MaterialGetColorResult;
-
 struct RayHit;
 typedef struct Material {
   MaterialType type;
-  MaterialGetColorResult (*get_color)(struct Material* material, struct RayHit rayhit, u64* state);
+
+  Color (*get_color)(struct Material* material);
+  Vector3 (*get_direction)(struct Material* material, struct RayHit rayhit, u64* state); // the return vector will be normalized
   void (*destroy)(struct Material* material);
 } Material;
