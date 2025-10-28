@@ -15,7 +15,9 @@ World world_create() {
     return (World) {0};
   }
 
+  world.indirect_light_sampling = true;
   world.direct_light_sampling = false;
+
   world.max_ray_bounces = DEFAULT_MAX_RAY_BOUNCES;
   world.sky_color = DEFAULT_SKY_COLOR;
 

@@ -18,6 +18,7 @@
 #include "materials/metal.h"
 #include "materials/glass.h"
 #include "materials/emissive.h"
+#include "math/vector2.h"
 #include "math/vector3.h"
 #include "tonemapping.h"
 
@@ -28,7 +29,7 @@ static void gui_update_window_camera(GUI* gui, Camera* camera, World* world, boo
 static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_framebuffer);
 
 GUI gui_create(u32 width, u32 height) {
-  GUI gui = {0};
+  GUI gui;
 
   gui.window = window_create(width, height, "Path Tracer");
   gui.texture = texture_create();
@@ -44,6 +45,8 @@ GUI gui_create(u32 width, u32 height) {
   gui.show_export_warning_window = false;
 
   gui.export_image_type = HDR;
+
+  gui.add_type = SPHERE;
 
   return gui;
 }
@@ -104,7 +107,7 @@ static void gui_update_window_export_warning(GUI* gui, Camera* camera, World* wo
       gui->show_export_warning_window = false;
     }
 
-    igSameLine(0, igGetStyle()->ItemInnerSpacing.x);
+    igSameLine(0, gui->window->imgui_context->Style.ItemInnerSpacing.x);
 
     if (igSmallButton("No")) { gui->show_export_warning_window = false; }
   igEnd();
@@ -129,17 +132,13 @@ static void gui_update_window_camera(GUI* gui, Camera* camera, World* world, boo
   igBegin("Camera", &gui->show_camera_window, 0);
     igSeparatorText("Statistics");
 
-    igText("Frames per second: %0.2f", igGetIO_Nil()->Framerate);
+    igText("FPS: %0.2f", igGetIO_ContextPtr(gui->window->imgui_context)->Framerate);
     igText("Samples: %d", camera->sample_count);
 
     igSeparatorText("Settings");
 
-    if (igDragFloat3("Position", camera->position.data, 0.1f, -1000.0f, 1000.0f, "%0.2f", 0)) {
-      *reset_camera_framebuffer = true;
-    }
-    if (igDragFloat("Focal Length", &camera->focal_length, 0.05f, 0.0f, 1000.0f, "%0.2f", 0)) {
-      *reset_camera_framebuffer = true;
-    }
+    if (igDragFloat3("Position", camera->position.data, 0.1f, -1000.0f, 1000.0f, "%0.2f", 0)) { *reset_camera_framebuffer = true; }
+    if (igDragFloat("Focal Length", &camera->focal_length, 0.05f, 0.0f, 1000.0f, "%0.2f", 0)) { *reset_camera_framebuffer = true; }
 
     igSeparatorText("Rendering Settings");
 
@@ -187,17 +186,26 @@ static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_f
   igBegin("World", &gui->show_world_window, 0);
     igSeparatorText("Settings");
 
-    if (igCheckbox("Direct Light Sampling (BROKEN)", &world->direct_light_sampling)) {
-      *reset_camera_framebuffer = true;
-    }
+    if (igCheckbox("Indirect Light Sampling", &world->indirect_light_sampling)) { *reset_camera_framebuffer = true; }
+    /*
+    if (igCheckbox("Direct Light Sampling (BROKEN)", &world->direct_light_sampling)) { *reset_camera_framebuffer = true; }
+    */
     igInputInt("Max Ray Bounces", (s32*) &world->max_ray_bounces, 1, 1, 0);
-    f32 sky_color[3] = { world->sky_color.red, world->sky_color.green, world->sky_color.blue };
-    if (igColorEdit3("Sky Color", sky_color, ImGuiColorEditFlags_NoPicker)) {
-      world->sky_color = (Color) { sky_color[0], sky_color[1], sky_color[2] };
-      *reset_camera_framebuffer = true;
-    }
+    if (igColorEdit3("Sky Color", world->sky_color.data, ImGuiColorEditFlags_NoPicker)) { *reset_camera_framebuffer = true; }
 
     igSeparatorText("Scene");
+
+    if (igSmallButton("Save")) {
+      // run world save function
+    }
+
+    igSameLine(0, gui->window->imgui_context->Style.ItemInnerSpacing.x);
+
+    if (igSmallButton("Load")) {
+      // run world load function, need file dialogs!
+    }
+
+    igSeparator();
 
     for (usize i = 0; i < world->hittables_count; i++) {
       igPushID_Int(i);
@@ -207,29 +215,23 @@ static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_f
       if (igCollapsingHeader_BoolPtr(hittable->identifer, NULL, 0)) {
         igSeparatorText("Settings");
 
-        if (igDragFloat3("Position", hittable->position->data, 0.1f, -1000.0f, 1000.0f, "%0.2f", 0)) {
-          *reset_camera_framebuffer = true;
-        }
+        if (igDragFloat3("Position", hittable->position->data, 0.1f, -1000.0f, 1000.0f, "%0.2f", 0)) { *reset_camera_framebuffer = true; }
 
         switch (hittable->type) {
           case SPHERE: {
             Sphere* sphere = (Sphere*) hittable;
 
-            if (igDragFloat("Radius", &sphere->radius, 0.1f, -1000.0f, 1000.0f, "%0.2f", 0)) {
-              *reset_camera_framebuffer = true;
-            }
+            if (igDragFloat("Radius", &sphere->radius, 0.1f, -1000.0f, 1000.0f, "%0.2f", 0)) { *reset_camera_framebuffer = true; }
           } break;
           case PLANE: {
             Plane* plane = (Plane*) hittable;
 
             if (igDragFloat3("Normal", plane->normal.data, 0.01f, -1.0f, 1.0f, "%0.2f", 0)) {
               plane->normal = vector3_normalize(plane->normal);
-              plane_update_tangent_vectors(plane);
+              hittable_plane_update_tangent_vectors(plane);
               *reset_camera_framebuffer = true;
             }
-            if (igDragFloat2("Size", plane->size.data, 0.1f, 0.0f, 1000.0f, "%0.2f", 0)) {
-              *reset_camera_framebuffer = true;
-            }
+            if (igDragFloat2("Size", plane->size.data, 0.1f, 0.0f, 1000.0f, "%0.2f", 0)) { *reset_camera_framebuffer = true; }
           } break;
         }
 
@@ -255,21 +257,12 @@ static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_f
           }
 
           material->destroy(world->hittables[i]->material);
-          material = world->hittables[i]->material;
 
           switch (new_type) {
-            case DIFFUSE: {
-              world->hittables[i]->material = (Material*) diffuse_material_create(old_albedo);
-            } break;
-            case METAL: {
-              world->hittables[i]->material = (Material*) metal_material_create(old_albedo, 0.0f);
-            } break;
-            case GLASS: {
-              world->hittables[i]->material = (Material*) glass_material_create(old_albedo, 1.33f, 0.0f);
-            } break;
-            case EMISSIVE: {
-              world->hittables[i]->material = (Material*) emissive_material_create(old_albedo, 0.5f);
-            } break;
+            case DIFFUSE: world->hittables[i]->material = (Material*) material_diffuse_create(old_albedo); break;
+            case METAL: world->hittables[i]->material = (Material*) material_metal_create(old_albedo, 0.0f); break;
+            case GLASS: world->hittables[i]->material = (Material*) material_glass_create(old_albedo, 1.33f, 0.0f); break;
+            case EMISSIVE: world->hittables[i]->material = (Material*) material_emissive_create(old_albedo, 0.5f); break;
           }
 
           material = world->hittables[i]->material;
@@ -282,59 +275,48 @@ static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_f
           case DIFFUSE: {
             Diffuse* diffuse = (Diffuse*) material;
 
-            f32 albedo[3] = { diffuse->albedo.red, diffuse->albedo.green, diffuse->albedo.blue };
-            if (igColorEdit3("Albedo", albedo, 0)) {
-              diffuse->albedo = (Color) { albedo[0], albedo[1], albedo[2] };
-              *reset_camera_framebuffer = true;
-            }
+            if (igColorEdit3("Albedo", diffuse->albedo.data, 0)) { *reset_camera_framebuffer = true; }
           } break;
           case METAL: {
             Metal* metal = (Metal*) material;
 
-            f32 albedo[3] = { metal->albedo.red, metal->albedo.green, metal->albedo.blue };
-            if (igColorEdit3("Albedo", albedo, 0)) {
-              metal->albedo = (Color) { albedo[0], albedo[1], albedo[2] };
-              *reset_camera_framebuffer = true;
-            }
-            if (igDragFloat("Roughness", &metal->roughness, 0.1f, 0.0f, 1.0f, "%0.2f", 0)) {
-              *reset_camera_framebuffer = true;
-            }
+            if (igColorEdit3("Albedo", metal->albedo.data, 0)) { *reset_camera_framebuffer = true; }
+            if (igDragFloat("Roughness", &metal->roughness, 0.1f, 0.0f, 1.0f, "%0.2f", 0)) { *reset_camera_framebuffer = true; }
           } break;
           case GLASS: {
             Glass* glass = (Glass*) material;
 
-            f32 albedo[3] = { glass->albedo.red, glass->albedo.green, glass->albedo.blue };
-            if (igColorEdit3("Albedo", albedo, 0)) {
-              glass->albedo = (Color) { albedo[0], albedo[1], albedo[2] };
-              *reset_camera_framebuffer = true;
-            }
-            if (igDragFloat("Refraction Index", &glass->refraction_index, 0.1f, 0.0f, 50.0f, "%0.2f", 0)) {
-              *reset_camera_framebuffer = true;
-            }
-            if (igDragFloat("Roughness", &glass->roughness, 0.1f, 0.0f, 1.0f, "%0.2f", 0)) {
-              *reset_camera_framebuffer = true;
-            }
+            if (igColorEdit3("Albedo", glass->albedo.data, 0)) { *reset_camera_framebuffer = true; }
+            if (igDragFloat("Refraction Index", &glass->refraction_index, 0.1f, 0.0f, 50.0f, "%0.2f", 0)) { *reset_camera_framebuffer = true; }
+            if (igDragFloat("Roughness", &glass->roughness, 0.1f, 0.0f, 1.0f, "%0.2f", 0)) { *reset_camera_framebuffer = true; }
           } break;
           case EMISSIVE: {
             Emissive* emissive = (Emissive*) material;
 
-            f32 albedo[3] = { emissive->albedo.red, emissive->albedo.green, emissive->albedo.blue };
-            if (igColorEdit3("Albedo", albedo, 0)) {
-              emissive->albedo = (Color) { albedo[0], albedo[1], albedo[2] };
-              *reset_camera_framebuffer = true;
-            }
-            if (igDragFloat("Emission Strength", &emissive->emission_strength, 0.1f, 0.0f, 1000.0f, "%0.2f", 0)) {
-              *reset_camera_framebuffer = true;
-            }
+            if (igColorEdit3("Albedo", emissive->albedo.data, 0)) { *reset_camera_framebuffer = true; }
+            if (igDragFloat("Emission Strength", &emissive->emission_strength, 0.1f, 0.0f, 1000.0f, "%0.2f", 0)) { *reset_camera_framebuffer = true; }
           } break;
         }
       }
       igPopID();
     }
+
     igSeparator();
 
+    igCombo_Str("##", (s32*) &gui->add_type, HITTABLE_TYPES_STRING, 0);
+
+    igSameLine(0, gui->window->imgui_context->Style.ItemInnerSpacing.x);
+
     if (igSmallButton("Add")) {
-      world_add(world, (Hittable*) sphere_create((Vector3) { 0.0f, 0.0f, 0.0f }, 1.0f, (Material*)  diffuse_material_create((Color) { 0.75f, 0.75f, 0.75f })));
+      Material* default_material = (Material*) material_diffuse_create((Color) { 0.75f, 0.75f, 0.75f });
+
+      Hittable* new_hittable;
+      switch (gui->add_type) {
+        case SPHERE: new_hittable = (Hittable*) hittable_sphere_create((Vector3) { 0.0f, 0.0f, 0.0f }, 1.0f, default_material); break;
+        case PLANE: new_hittable = (Hittable*) hittable_plane_create((Vector3) { 0.0f, 0.0f, 0.0f }, (Vector3) { 0.0f, 1.0f, 0.0f}, (Vector2) { 10.0f, 10.0f }, default_material); break;
+      }
+
+      world_add(world, new_hittable);
       *reset_camera_framebuffer = true;
     }
   igEnd();

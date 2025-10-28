@@ -15,7 +15,7 @@ static Color get_color(Material* material);
 static Vector3 get_direction(Material* material, RayHit rayhit, u64* state);
 static void destroy(Material* material);
 
-Glass* glass_material_create(Color albedo, f32 refraction_index, f32 roughness) {
+Glass* material_glass_create(Color albedo, f32 refraction_index, f32 roughness) {
   Glass* glass = (Glass*) malloc(sizeof(Glass));
   if (!glass) {
     fprintf(stderr, "[ERROR] [MATERIAL] [GLASS] Failed to allocate memory for glass material!\n");
@@ -31,24 +31,24 @@ Glass* glass_material_create(Color albedo, f32 refraction_index, f32 roughness) 
 }
 
 inline static Color get_color(Material* material) {
-  return glass_material_get_color((Glass*) material);
+  return material_glass_get_color((Glass*) material);
 }
 
 inline static Vector3 get_direction(Material* material, RayHit rayhit, u64* state) {
-  return glass_material_get_direction((Glass*) material, rayhit, state);
+  return material_glass_get_direction((Glass*) material, rayhit, state);
 }
 
 inline static void destroy(Material* material) {
-  glass_material_destroy((Glass*) material);
+  material_glass_destroy((Glass*) material);
 }
 
-inline Color glass_material_get_color(Glass* glass) {
+inline Color material_glass_get_color(Glass* glass) {
   return glass->albedo;
 }
 
 static f32 reflectance(f32 cosine, f32 refraction_ratio);
 
-Vector3 glass_material_get_direction(Glass *glass, RayHit rayhit, u64 *state) {
+Vector3 material_glass_get_direction(Glass *glass, RayHit rayhit, u64 *state) {
   Vector3 direction;
 
   f32 refraction_ratio = rayhit.inside ? (1.0f / glass->refraction_index) : glass->refraction_index;
@@ -56,7 +56,7 @@ Vector3 glass_material_get_direction(Glass *glass, RayHit rayhit, u64 *state) {
   f32 sin_theta = sqrtf(1.0f - (cos_theta * cos_theta));
 
   bool cannot_refract = refraction_ratio * sin_theta > 1.0f;
-  bool should_reflect = reflectance(cos_theta, refraction_ratio) > random_f32(state); 
+  bool should_reflect = reflectance(cos_theta, refraction_ratio) > random_f32(state);
 
   if (cannot_refract || should_reflect) {
     direction = vector3_reflect(rayhit.ray.direction, rayhit.normal);
@@ -75,6 +75,6 @@ static f32 reflectance(f32 cosine, f32 refraction_ratio) {
   return reflectance + (1.0f - reflectance) * powf(1.0f - cosine, 5.0f);
 }
 
-inline void glass_material_destroy(Glass* glass) {
+inline void material_glass_destroy(Glass* glass) {
   free(glass);
 }

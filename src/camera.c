@@ -24,7 +24,10 @@ static RayHit cast_direct(Ray ray, World* world, u64* state);
 static Color cast_ray(Ray ray, World* world, u64* state, u32 bounce_count) {
   Color result = world->sky_color;
 
-  for (usize b = 0; b < world->max_ray_bounces; b++) {
+  usize max_bounces = world->max_ray_bounces;
+  if (!world->indirect_light_sampling) { max_bounces = 1; }
+
+  for (usize i = 0; i < max_bounces; i++) {
     RayHit indirect = cast_indirect(ray, world, state);
     if (!indirect.hit) { return result; }
 
@@ -37,9 +40,8 @@ static Color cast_ray(Ray ray, World* world, u64* state, u32 bounce_count) {
 
     if (world->direct_light_sampling) {
       RayHit direct = cast_direct(ray, world, state);
-      if (direct.hit) {
-        result = color_add(result, direct.material->get_color(direct.material));
-      }
+      if (!direct.hit) { return result; }
+      result = color_mulitply(result, direct.material->get_color(direct.material));
     }
   }
 
@@ -61,36 +63,7 @@ static RayHit cast_indirect(Ray ray, World* world, u64* state) {
   return closest_hit;
 }
 
-// todo: do more reseach on direct light sampling and fix this function
 static RayHit cast_direct(Ray ray, World* world, u64* state) {
-  f32 closest_t;
-
-  for (usize e = 0; e < world->hittables_count; e++) {
-    if (world->hittables[e]->material->type != EMISSIVE) { continue; }
-
-    Vector3 random_point_on_emissive = random_hittable_position(state, world->hittables[e]); 
-    ray.direction = vector3_subtract(random_point_on_emissive, ray.origin);
-
-    f32 distance = vector3_length(ray.direction);
-    closest_t = distance;
-
-    for (usize i = 0; i < world->hittables_count; i++) {
-      RayHit shadow_rayhit = world->hittables[i]->hit(world->hittables[i], ray);
-      if (shadow_rayhit.hit && shadow_rayhit.t > 0.001f && shadow_rayhit.t < closest_t && i != e) {
-        closest_t = shadow_rayhit.t; 
-      }
-    }
-
-    if (closest_t >= distance) {
-      return (RayHit) {
-        .hit = true,
-        .hit_position = random_point_on_emissive,
-        .material = world->hittables[e]->material,
-        .t = distance
-      };
-    }
-  }
-
   return (RayHit) {0};
 }
 
@@ -108,7 +81,7 @@ Camera* camera_create(u32 width, u32 height, World* world) {
 
   camera->width = width;
   camera->height = height;
-  
+
   u32 framebuffer_length = width * height;
   camera->framebuffer = (Color*) malloc(sizeof(Color) * framebuffer_length);
   if (!camera->framebuffer) {
@@ -164,7 +137,7 @@ static void* camera_render_worker_work(void* thread_data) {
           f32 direction_x = camera->viewport.first_pixel.x + (camera->viewport.pixel_delta.x * (x + (random_f32(state) - 0.5f)));
           f32 direction_y = camera->viewport.first_pixel.y + (camera->viewport.pixel_delta.y * (y + (random_f32(state) - 0.5f)));
           Vector3 direction = { direction_x, direction_y, -camera->focal_length };
-          data->camera->framebuffer[i] = color_add(camera->framebuffer[i], cast_ray((Ray) { camera->position, direction }, world, state, 0)); 
+          data->camera->framebuffer[i] = color_add(camera->framebuffer[i], cast_ray((Ray) { camera->position, direction }, world, state, 0));
         }
       }
     }

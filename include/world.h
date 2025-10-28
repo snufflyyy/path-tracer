@@ -15,7 +15,9 @@ typedef struct World {
   u32 hittables_count;
   u32 capacity;
 
+  bool indirect_light_sampling;
   bool direct_light_sampling;
+
   u32 max_ray_bounces;
   Color sky_color;
 } World;

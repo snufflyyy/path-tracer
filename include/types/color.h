@@ -2,12 +2,14 @@
 
 #include "types/base_types.h"
 
-typedef struct Color {
-  f32 red, green, blue;
+typedef union Color {
+  struct { f32 red, green, blue; };
+  f32 data[3];
 } Color;
 
-typedef struct ColorRGB {
-  u8 red, green, blue;
+typedef union ColorRGB {
+  struct { u8 red, green, blue; };
+  u8 data[3];
 } ColorRGB;
 
 Color color_add(Color a, Color b);

@@ -11,7 +11,7 @@ typedef struct Emissive {
   f32 emission_strength;
 } Emissive;
 
-Emissive* emissive_material_create(Color albedo, f32 emission_strength);
-Color emissive_material_get_color(Emissive* diffuse);
-Vector3 emissive_material_get_direction(Emissive* diffuse, RayHit rayhit, u64* state);
-void emissive_material_destroy(Emissive* diffuse);
+Emissive* material_emissive_create(Color albedo, f32 emission_strength);
+Color material_emissive_get_color(Emissive* diffuse);
+Vector3 material_emissive_get_direction(Emissive* diffuse, RayHit rayhit, u64* state);
+void material_emissive_destroy(Emissive* diffuse);

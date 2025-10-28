@@ -11,7 +11,7 @@
 static RayHit hit(Hittable* hittable, Ray ray);
 static void destroy(Hittable* hittable);
 
-Plane* plane_create(Vector3 position, Vector3 normal, Vector2 size, Material* material) {
+Plane* hittable_plane_create(Vector3 position, Vector3 normal, Vector2 size, Material* material) {
   Plane* plane = (Plane*) malloc(sizeof(Plane));
   if (!plane) {
     fprintf(stderr, "[ERROR] [HITTABLE] [PLANE] Failed to allocate memory for plane!\n");
@@ -29,21 +29,21 @@ Plane* plane_create(Vector3 position, Vector3 normal, Vector2 size, Material* ma
 
   plane->position = position;
   plane->normal = normal;
-  plane_update_tangent_vectors(plane);
+  hittable_plane_update_tangent_vectors(plane);
   plane->size = size;
 
   return plane;
 }
 
 static inline RayHit hit(Hittable* hittable, Ray ray) {
-  return plane_ray_hit((Plane*) hittable, ray);
+  return hittable_plane_ray_hit((Plane*) hittable, ray);
 }
 
 static inline void destroy(Hittable* hittable) {
-  plane_destroy((Plane*) hittable);
+  hittable_plane_destroy((Plane*) hittable);
 }
 
-void plane_update_tangent_vectors(Plane* plane) {
+void hittable_plane_update_tangent_vectors(Plane* plane) {
   Vector3 world_up = { 0.0f, 1.0f, 0.0f };
 
   if (fabs(vector3_dot_product(plane->normal, world_up)) > 0.999f) {
@@ -54,7 +54,7 @@ void plane_update_tangent_vectors(Plane* plane) {
   plane->up = vector3_cross_product(plane->normal, plane->right);
 }
 
-RayHit plane_ray_hit(Plane* plane, Ray ray) {
+RayHit hittable_plane_ray_hit(Plane* plane, Ray ray) {
   if (vector3_dot_product(ray.direction, plane->normal) > 0.0f) { return (RayHit) {0}; }
 
   f32 denomanator = vector3_dot_product(ray.direction, plane->normal);
@@ -82,7 +82,7 @@ RayHit plane_ray_hit(Plane* plane, Ray ray) {
   return rayhit;
 }
 
-void plane_destroy(Plane* plane) {
+void hittable_plane_destroy(Plane* plane) {
   free(plane->hittable.material);
   free(plane);
 }

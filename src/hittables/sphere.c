@@ -15,7 +15,7 @@
 static RayHit hit(Hittable* hittable, Ray ray);
 static void destroy(Hittable* hittable);
 
-Sphere* sphere_create(Vector3 position, f32 radius, Material* material) {
+Sphere* hittable_sphere_create(Vector3 position, f32 radius, Material* material) {
   Sphere* sphere = (Sphere*) malloc(sizeof(Sphere));
   if (!sphere) {
     fprintf(stderr, "[ERROR] [HITTABLE] [SPHERE] Failed to allocate memory for sphere!\n");
@@ -38,14 +38,14 @@ Sphere* sphere_create(Vector3 position, f32 radius, Material* material) {
 }
 
 inline static RayHit hit(Hittable* hittable, Ray ray) {
-  return sphere_ray_hit((Sphere*) hittable, ray);
+  return hittable_sphere_ray_hit((Sphere*) hittable, ray);
 }
 
 inline static void destroy(Hittable* hittable) {
-  sphere_destroy((Sphere*) hittable);
+  hittable_sphere_destroy((Sphere*) hittable);
 }
 
-RayHit sphere_ray_hit(Sphere* sphere, Ray ray) {
+RayHit hittable_sphere_ray_hit(Sphere* sphere, Ray ray) {
   Vector3 oc = vector3_subtract(sphere->position, ray.origin);
   f32 a = vector3_length_squared(ray.direction);
   f32 h = vector3_dot_product(ray.direction, oc);
@@ -79,7 +79,7 @@ RayHit sphere_ray_hit(Sphere* sphere, Ray ray) {
   return rayhit;
 }
 
-void sphere_destroy(Sphere* sphere) {
+void hittable_sphere_destroy(Sphere* sphere) {
   free(sphere->hittable.material);
   free(sphere);
 }

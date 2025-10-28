@@ -16,4 +16,4 @@ typedef struct ToneMappingOperator {
 ColorRGB tonemapping(ToneMappingOperator tonemapping_operator, Color color);
 
 ColorRGB tonemapping_clamp(Color color);
-ColorRGB tonemapping_reinhard(Color color, float max_white);
+ColorRGB tonemapping_reinhard(Color color, f32 max_white);

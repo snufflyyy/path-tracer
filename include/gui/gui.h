@@ -4,6 +4,7 @@
 
 #include "gui/window.h"
 #include "gui/texture.h"
+#include "hittables/hittable.h"
 #include "types/color.h"
 #include "camera.h"
 #include "image.h"
@@ -12,6 +13,7 @@
 #define MATERIAL_TYPES_STRING "Diffuse\0Metal\0Glass\0Emissive\0"
 #define TONEMAPPING_OPERATORS_STRING "Clamp\0Reinhard\0"
 #define IMAGE_TYPES_STRING "HDR\0JPG\0"
+#define HITTABLE_TYPES_STRING "Sphere\0Plane\0"
 
 typedef struct GUI {
   Window* window;
@@ -24,6 +26,8 @@ typedef struct GUI {
   bool show_export_warning_window;
 
   ImageType export_image_type;
+
+  HittableType add_type;
 } GUI;
 
 GUI gui_create(u32 width, u32 height);

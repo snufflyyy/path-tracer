@@ -13,6 +13,6 @@ typedef struct Sphere {
   f32 radius;
 } Sphere;
 
-Sphere* sphere_create(Vector3 position, f32 radius, Material* material);
-RayHit sphere_ray_hit(Sphere* sphere, Ray ray);
-void sphere_destroy(Sphere* sphere);
+Sphere* hittable_sphere_create(Vector3 position, f32 radius, Material* material);
+RayHit hittable_sphere_ray_hit(Sphere* sphere, Ray ray);
+void hittable_sphere_destroy(Sphere* sphere);

@@ -15,7 +15,7 @@ typedef struct Plane {
   Vector2 size;
 } Plane;
 
-Plane* plane_create(Vector3 position, Vector3 normal, Vector2 size, Material* material);
-void plane_update_tangent_vectors(Plane* plane);
-RayHit plane_ray_hit(Plane* plane, Ray ray);
-void plane_destroy(Plane* plane);
+Plane* hittable_plane_create(Vector3 position, Vector3 normal, Vector2 size, Material* material);
+void hittable_plane_update_tangent_vectors(Plane* plane);
+RayHit hittable_plane_ray_hit(Plane* plane, Ray ray);
+void hittable_plane_destroy(Plane* plane);
