@@ -31,12 +31,12 @@ static Color cast_ray(Ray ray, World* world, u64* state, u32 bounce_count) {
     RayHit indirect = cast_indirect(ray, world, state);
     if (!indirect.hit) { return result; }
 
+    result = color_mulitply(result, indirect.material->get_color(indirect.material));
+
     ray = (Ray) {
       .origin = indirect.hit_position,
       .direction = indirect.material->get_direction(indirect.material, indirect, state)
     };
-
-    result = color_mulitply(result, indirect.material->get_color(indirect.material));
 
     if (world->direct_light_sampling) {
       RayHit direct = cast_direct(ray, world, state);

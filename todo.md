@@ -5,6 +5,7 @@
  - if i add a triangle hittable, try to add meshes using BVH or something like that
  - simd optimized math functions maybe? (do some digging to see if the compiler is doing a good enough job simd optimizing)
  - direct light sampling
+ - it might be worth to switch all function error handling to use gotos
 
 # version 0.5
 

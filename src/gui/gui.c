@@ -9,6 +9,8 @@
 #include <cimgui.h>
 #include <cimgui_impl.h>
 
+#include <nfd.h>
+
 #include "hittables/hittable.h"
 #include "image.h"
 #include "hittables/sphere.h"
@@ -21,12 +23,13 @@
 #include "math/vector2.h"
 #include "math/vector3.h"
 #include "tonemapping.h"
+#include "world.h"
 
 static void gui_update_main_menu_bar(GUI* gui);
 static void gui_update_window_export_warning(GUI* gui, Camera* camera, World* world);
 static void gui_update_window_render(GUI* gui, Camera* camera);
 static void gui_update_window_camera(GUI* gui, Camera* camera, World* world, bool* reset_camera_framebuffer);
-static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_framebuffer);
+static void gui_update_window_world(GUI* gui, World* world, Camera* camera, bool* reset_camera_framebuffer);
 
 GUI gui_create(u32 width, u32 height) {
   GUI gui;
@@ -62,7 +65,7 @@ void gui_update(GUI* gui, Camera* camera, World* world) {
     igDockSpaceOverViewport(igGetID_Str("dockspace"), NULL, ImGuiDockNodeFlags_PassthruCentralNode, NULL);
     if (gui->show_render_window) { gui_update_window_render(gui, camera); }
     if (gui->show_camera_window) { gui_update_window_camera(gui, camera, world, &reset_camera_framebuffer); }
-    if (gui->show_world_window) { gui_update_window_world(gui, world, &reset_camera_framebuffer); }
+    if (gui->show_world_window) { gui_update_window_world(gui, world, camera, &reset_camera_framebuffer); }
   window_imgui_end_frame();
 
   if (reset_camera_framebuffer) { camera_clear_framebuffer(camera); }
@@ -179,7 +182,7 @@ static void gui_update_window_camera(GUI* gui, Camera* camera, World* world, boo
   igEnd();
 }
 
-static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_framebuffer) {
+static void gui_update_window_world(GUI* gui, World* world, Camera* camera, bool* reset_camera_framebuffer) {
   bool remove_hittable = false;
   usize remove_hittable_index;
 
@@ -196,13 +199,31 @@ static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_f
     igSeparatorText("Scene");
 
     if (igSmallButton("Save")) {
-      // run world save function
+      NFD_Init();
+      nfdchar_t *save_path;
+      nfdfilteritem_t filter_items[1] = { { "Scene file", "scene" } };
+      nfdresult_t result = NFD_SaveDialog(&save_path, filter_items, 1, NULL, "untitled.scene");
+      if (result == NFD_OKAY) {
+        world_scene_save(world, camera, save_path);
+        NFD_FreePath(save_path);
+      }
+      NFD_Quit();
     }
 
     igSameLine(0, gui->window->imgui_context->Style.ItemInnerSpacing.x);
 
     if (igSmallButton("Load")) {
-      // run world load function, need file dialogs!
+      NFD_Init();
+      nfdchar_t *out_path;
+      nfdfilteritem_t filter_items[1] = { { "Scene file", "scene" } };
+      nfdresult_t result = NFD_OpenDialog(&out_path, filter_items, 1, NULL);
+      if (result == NFD_OKAY) {
+        world_scene_load(world, camera, out_path);
+        NFD_FreePath(out_path);
+      }
+      NFD_Quit();
+
+      *reset_camera_framebuffer = true;
     }
 
     igSeparator();
@@ -248,7 +269,7 @@ static void gui_update_window_world(GUI* gui, World* world, bool* reset_camera_f
 
         MaterialType new_type = material->type;
         if (igCombo_Str("Material Type", (s32*) &new_type, MATERIAL_TYPES_STRING, 0)) {
-          Color old_albedo = (Color) { 1.0f, 1.0f, 1.0f };
+          Color old_albedo;
           switch (material->type) {
             case DIFFUSE: old_albedo = ((Diffuse*) material)->albedo; break;
             case METAL: old_albedo = ((Metal*) material)->albedo; break;

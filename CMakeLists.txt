@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 4.0)
-project(PathTracer)
+cmake_minimum_required(VERSION 3.16)
+project(PathTracer LANGUAGES C CXX OBJC)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -25,6 +25,18 @@ target_include_directories(cimgui PUBLIC
   external/cimgui/imgui/backends
 )
 
+add_library(cJSON external/cJSON/src/cJSON.c)
+target_include_directories(cJSON PUBLIC external/cJSON/include)
+
+set(NFD_BUILD_TESTS OFF)
+add_subdirectory(external/nativefiledialog-extended)
+if(APPLE)
+  target_link_libraries(nfd PRIVATE
+    "-framework AppKit"
+    "-framework UniformTypeIdentifiers"
+  )
+endif()
+
 add_executable(
   ${PROJECT_NAME}
   src/main.c
@@ -35,6 +47,8 @@ add_executable(
   src/tonemapping.c
   src/camera.c
   src/world.c
+
+  src/utils/file.c
 
   src/math/vector3.c
   src/math/ray.c
@@ -62,7 +76,8 @@ include_directories(
 )
 
 target_compile_definitions(${PROJECT_NAME} PUBLIC -DCIMGUI_USE_OPENGL3 -DCIMGUI_USE_GLFW)
-target_link_libraries(${PROJECT_NAME} PRIVATE glfw ${OpenGL_LIBRARIES} glad cimgui)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE glfw ${OpenGL_LIBRARIES} glad cimgui cJSON nfd)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   target_link_libraries(${PROJECT_NAME} PRIVATE ${X11_LIBRARIES})
 endif()

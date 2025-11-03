@@ -1,0 +1,23 @@
+{
+	"camera":	{
+		"position":	[0, 0, 5]
+	},
+	"hittables":	[{
+			"type":	1,
+			"position":	[0, -1, 0],
+			"normal":	[0, 1, 0],
+			"size":	[10, 10],
+			"material":	{
+				"type":	0,
+				"albedo":	[0.75, 0.75, 0.75]
+			}
+		}, {
+			"type":	0,
+			"position":	[0, 0, 0],
+			"radius":	1,
+			"material":	{
+				"type":	0,
+				"albedo":	[0.74901962280273438, 0.49019607901573181, 0.74901962280273438]
+			}
+		}]
+}
