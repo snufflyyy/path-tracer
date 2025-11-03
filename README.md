@@ -53,10 +53,12 @@ The GUI should be pretty self-explanatory if you have used any 3D software befor
 
 ## Acknowledgements
 
- - [stb_image_write.h](https://github.com/nothings/stb) - used for final render image exporting
  - [GLFW](https://www.glfw.org) - used for creating windows and my OpenGL context
  - [glad](https://glad.dav1d.de) - used for exposing the OpenGL bindings
- - [cimgui](https://github.com/cimgui/cimgui) - used for creating the ui by letting me use the amazing [dear imgui](https://github.com/ocornut/imgui) ui library
+ - [cimgui](https://github.com/cimgui/cimgui) - used for creating the ui by letting me use the amazing [dear imgui](https://github.com/ocornut/imgui) library
+ - [stb_image_write.h](https://github.com/nothings/stb) - used for final render image exporting
+ - [cJSON](https://github.com/DaveGamble/cJSON) - used for scene saving and loading
+ - [Native File Dialog Extended](https://github.com/btzy/nativefiledialog-extended) - used for getting fancy *native* file dialogs
 
 ## License
 
