@@ -1,0 +1,29 @@
+{
+	"camera":	{
+		"position":	[0, 0, 5]
+	},
+	"hittables":	[{
+			"type":	0,
+			"position":	[0, 0, 0],
+			"radius":	1,
+			"material":	{
+				"type":	0,
+				"albedo":	{
+					"type":	1,
+					"path":	"../assets/earth.jpg"
+				}
+			}
+		}, {
+			"type":	1,
+			"position":	[0, -1, 0],
+			"normal":	[0, 1, 0],
+			"size":	[5, 5],
+			"material":	{
+				"type":	0,
+				"albedo":	{
+					"type":	1,
+					"path":	"../assets/texture.jpg"
+				}
+			}
+		}]
+}

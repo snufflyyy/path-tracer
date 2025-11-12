@@ -1,18 +1,25 @@
 #pragma once
 
+#include <cJSON.h>
+
 #include "materials/material.h"
 #include "types/color.h"
 #include "types/rayhit.h"
+#include "textures/texture.h"
 
-typedef struct Glass {
+typedef struct MaterialGlass {
   Material material;
 
-  Color albedo;
+  Texture* albedo;
   f32 refraction_index;
   f32 roughness;
-} Glass;
+} MaterialGlass;
 
-Glass* material_glass_create(Color albedo, f32 refraction_index, f32 roughness);
-Color material_glass_get_color(Glass* glass);
-Vector3 material_glass_get_direction(Glass* glass, RayHit rayhit, u64* state);
-void material_glass_destroy(Glass* glass);
+MaterialGlass* material_glass_create(Texture* albedo, f32 refraction_index, f32 roughness);
+Color material_glass_get_color(MaterialGlass* glass, Vector2 uv_coordinates);
+Vector3 material_glass_get_direction(MaterialGlass* glass, RayHit rayhit, u64* state);
+
+cJSON* material_glass_json_create(MaterialGlass* glass);
+MaterialGlass* material_glass_json_parse(cJSON* glass_json);
+
+void material_glass_destroy(MaterialGlass* glass);

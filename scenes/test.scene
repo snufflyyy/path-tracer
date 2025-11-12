@@ -1,0 +1,66 @@
+{
+	"camera":	{
+		"position":	[0, 0, 7.5]
+	},
+	"hittables":	[{
+			"type":	0,
+			"position":	[-3, 0, 0],
+			"radius":	1,
+			"material":	{
+				"type":	0,
+				"albedo":	{
+					"type":	0,
+					"color":	[0.75, 0.75, 0.75]
+				}
+			}
+		}, {
+			"type":	0,
+			"position":	[-1, 0, 0],
+			"radius":	1,
+			"material":	{
+				"type":	3,
+				"albedo":	{
+					"type":	0,
+					"color":	[0.75, 0.75, 0.75]
+				},
+				"emission-strength":	1
+			}
+		}, {
+			"type":	0,
+			"position":	[1, 0, 0],
+			"radius":	1,
+			"material":	{
+				"type":	1,
+				"albedo":	{
+					"type":	0,
+					"color":	[0.75, 0.75, 0.75]
+				},
+				"roughness":	0
+			}
+		}, {
+			"type":	0,
+			"position":	[3, 0, 0],
+			"radius":	1,
+			"material":	{
+				"type":	2,
+				"albedo":	{
+					"type":	0,
+					"color":	[0.75, 0.75, 0.75]
+				},
+				"roughness":	0,
+				"refraction-index":	0.5
+			}
+		}, {
+			"type":	1,
+			"position":	[0, -1, 0],
+			"normal":	[0, 1, 0],
+			"size":	[25, 25],
+			"material":	{
+				"type":	0,
+				"albedo":	{
+					"type":	0,
+					"color":	[0.75, 0.75, 0.75]
+				}
+			}
+		}]
+}

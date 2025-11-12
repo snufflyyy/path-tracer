@@ -5,13 +5,13 @@
 #include "types/color.h"
 #include "types/base_types.h"
 
-typedef GLuint Texture;
+typedef GLuint GLTexture;
 
-Texture texture_create();
+GLTexture texture_create();
 
-void texture_bind(Texture texture);
+void texture_bind(GLTexture texture);
 void texture_unbind();
 
-void texture_set_colorRGB_buffer(Texture texture, ColorRGB* buffer, u32 width, u32 height);
+void texture_set_colorRGB_buffer(GLTexture texture, ColorRGB* buffer, u32 width, u32 height);
 
-void texture_destroy(Texture texture);
+void texture_destroy(GLTexture texture);

@@ -1,6 +1,7 @@
 #include "gui/gui.h"
 
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include <glad/glad.h>
@@ -22,7 +23,12 @@
 #include "materials/emissive.h"
 #include "math/vector2.h"
 #include "math/vector3.h"
+#include "textures/image.h"
+#include "textures/solid_color.h"
+#include "textures/texture.h"
+#include "textures/image.h"
 #include "tonemapping.h"
+#include "utils/file.h"
 #include "world.h"
 
 static void gui_update_main_menu_bar(GUI* gui);
@@ -30,6 +36,9 @@ static void gui_update_window_export_warning(GUI* gui, Camera* camera, World* wo
 static void gui_update_window_render(GUI* gui, Camera* camera);
 static void gui_update_window_camera(GUI* gui, Camera* camera, World* world, bool* reset_camera_framebuffer);
 static void gui_update_window_world(GUI* gui, World* world, Camera* camera, bool* reset_camera_framebuffer);
+
+static bool gui_edit_path_tracer_texture_solid_color(GUI* gui, TextureSolidColor* solid_color);
+static bool gui_edit_path_tracer_texture_image(GUI* gui, TextureImage* image);
 
 GUI gui_create(u32 width, u32 height) {
   GUI gui;
@@ -49,7 +58,7 @@ GUI gui_create(u32 width, u32 height) {
 
   gui.export_image_type = HDR;
 
-  gui.add_type = SPHERE;
+  gui.add_type = HITTABLE_TYPE_SPHERE;
 
   return gui;
 }
@@ -99,13 +108,30 @@ static void gui_update_window_export_warning(GUI* gui, Camera* camera, World* wo
 
     igText("Exporting WILL freeze the GUI until the render is complete.");
     igText("Are you sure you want to continue?");
+
     if (igSmallButton("Yes")) {
+      NFD_Init();
+      nfdfilteritem_t filter_items[1];
+      switch (gui->export_image_type) {
+        case HDR: filter_items[0] = (nfdfilteritem_t) { "HDR", "hdr" }; break;
+        case JPG: filter_items[0] = (nfdfilteritem_t) { "JPG", "jpg" }; break;
+      }
+
+      nfdchar_t *save_path;
+      if (NFD_SaveDialog(&save_path, filter_items, 1, NULL, "output") != NFD_OKAY) {
+        fprintf(stderr, "[ERROR] [EXPORT] Failed to get image save path!\n");
+        NFD_Quit();
+        return;
+      }
+
       camera_render_export(camera, world);
 
       switch (gui->export_image_type) {
-        case HDR: image_create_hdr("output.hdr", camera); break;
-        case JPG: image_create_jpg("output.jpg", camera); break;
+        case HDR: image_create_hdr(save_path, camera); break;
+        case JPG: image_create_jpg(save_path, camera); break;
       }
+      NFD_FreePath(save_path);
+      NFD_Quit();
 
       gui->show_export_warning_window = false;
     }
@@ -190,9 +216,7 @@ static void gui_update_window_world(GUI* gui, World* world, Camera* camera, bool
     igSeparatorText("Settings");
 
     if (igCheckbox("Indirect Light Sampling", &world->indirect_light_sampling)) { *reset_camera_framebuffer = true; }
-    /*
-    if (igCheckbox("Direct Light Sampling (BROKEN)", &world->direct_light_sampling)) { *reset_camera_framebuffer = true; }
-    */
+    if (igCheckbox("Direct Light Sampling (Experimental)", &world->direct_light_sampling)) { *reset_camera_framebuffer = true; }
     igInputInt("Max Ray Bounces", (s32*) &world->max_ray_bounces, 1, 1, 0);
     if (igColorEdit3("Sky Color", world->sky_color.data, ImGuiColorEditFlags_NoPicker)) { *reset_camera_framebuffer = true; }
 
@@ -200,13 +224,15 @@ static void gui_update_window_world(GUI* gui, World* world, Camera* camera, bool
 
     if (igSmallButton("Save")) {
       NFD_Init();
-      nfdchar_t *save_path;
       nfdfilteritem_t filter_items[1] = { { "Scene file", "scene" } };
-      nfdresult_t result = NFD_SaveDialog(&save_path, filter_items, 1, NULL, "untitled.scene");
-      if (result == NFD_OKAY) {
-        world_scene_save(world, camera, save_path);
-        NFD_FreePath(save_path);
+      nfdchar_t *save_path;
+      if (NFD_SaveDialog(&save_path, filter_items, 1, NULL, "untitled") == NFD_ERROR) {
+        fprintf(stderr, "[ERROR] [SCENE] Failed to get scene save path!\n");
+        NFD_Quit();
       }
+
+      world_scene_save(world, camera, save_path);
+      NFD_FreePath(save_path);
       NFD_Quit();
     }
 
@@ -214,13 +240,15 @@ static void gui_update_window_world(GUI* gui, World* world, Camera* camera, bool
 
     if (igSmallButton("Load")) {
       NFD_Init();
-      nfdchar_t *out_path;
       nfdfilteritem_t filter_items[1] = { { "Scene file", "scene" } };
-      nfdresult_t result = NFD_OpenDialog(&out_path, filter_items, 1, NULL);
-      if (result == NFD_OKAY) {
-        world_scene_load(world, camera, out_path);
-        NFD_FreePath(out_path);
+      nfdchar_t *out_path;
+      if (NFD_OpenDialog(&out_path, filter_items, 1, NULL) == NFD_ERROR) {
+        fprintf(stderr, "[ERROR] [SCENE] Failed to get scene load path!\n");
+        NFD_Quit();
       }
+
+      world_scene_load(world, camera, out_path);
+      NFD_FreePath(out_path);
       NFD_Quit();
 
       *reset_camera_framebuffer = true;
@@ -239,13 +267,13 @@ static void gui_update_window_world(GUI* gui, World* world, Camera* camera, bool
         if (igDragFloat3("Position", hittable->position->data, 0.1f, -1000.0f, 1000.0f, "%0.2f", 0)) { *reset_camera_framebuffer = true; }
 
         switch (hittable->type) {
-          case SPHERE: {
-            Sphere* sphere = (Sphere*) hittable;
+          case HITTABLE_TYPE_SPHERE: {
+            HittableSphere* sphere = (HittableSphere*) hittable;
 
             if (igDragFloat("Radius", &sphere->radius, 0.1f, -1000.0f, 1000.0f, "%0.2f", 0)) { *reset_camera_framebuffer = true; }
           } break;
-          case PLANE: {
-            Plane* plane = (Plane*) hittable;
+          case HITTABLE_TYPE_PLANE: {
+            HittablePlane* plane = (HittablePlane*) hittable;
 
             if (igDragFloat3("Normal", plane->normal.data, 0.01f, -1.0f, 1.0f, "%0.2f", 0)) {
               plane->normal = vector3_normalize(plane->normal);
@@ -269,21 +297,21 @@ static void gui_update_window_world(GUI* gui, World* world, Camera* camera, bool
 
         MaterialType new_type = material->type;
         if (igCombo_Str("Material Type", (s32*) &new_type, MATERIAL_TYPES_STRING, 0)) {
-          Color old_albedo;
+          Texture* old_albedo;
           switch (material->type) {
-            case DIFFUSE: old_albedo = ((Diffuse*) material)->albedo; break;
-            case METAL: old_albedo = ((Metal*) material)->albedo; break;
-            case GLASS: old_albedo = ((Glass*) material)->albedo; break;
-            case EMISSIVE: old_albedo = ((Emissive*) material)->albedo; break;
+            case MATERIAL_TYPE_DIFFUSE: old_albedo = ((MaterialDiffuse*) material)->albedo; break;
+            case MATERIAL_TYPE_METAL: old_albedo = ((Metal*) material)->albedo; break;
+            case MATERIAL_TYPE_GLASS: old_albedo = ((MaterialGlass*) material)->albedo; break;
+            case MATERIAL_TYPE_EMISSIVE: old_albedo = ((MaterialEmissive*) material)->albedo; break;
           }
 
           material->destroy(world->hittables[i]->material);
 
           switch (new_type) {
-            case DIFFUSE: world->hittables[i]->material = (Material*) material_diffuse_create(old_albedo); break;
-            case METAL: world->hittables[i]->material = (Material*) material_metal_create(old_albedo, 0.0f); break;
-            case GLASS: world->hittables[i]->material = (Material*) material_glass_create(old_albedo, 1.33f, 0.0f); break;
-            case EMISSIVE: world->hittables[i]->material = (Material*) material_emissive_create(old_albedo, 0.5f); break;
+            case MATERIAL_TYPE_DIFFUSE: world->hittables[i]->material = (Material*) material_diffuse_create(old_albedo); break;
+            case MATERIAL_TYPE_METAL: world->hittables[i]->material = (Material*) material_metal_create(old_albedo, 0.0f); break;
+            case MATERIAL_TYPE_GLASS: world->hittables[i]->material = (Material*) material_glass_create(old_albedo, 1.33f, 0.0f); break;
+            case MATERIAL_TYPE_EMISSIVE: world->hittables[i]->material = (Material*) material_emissive_create(old_albedo, 0.5f); break;
           }
 
           material = world->hittables[i]->material;
@@ -293,28 +321,51 @@ static void gui_update_window_world(GUI* gui, World* world, Camera* camera, bool
         igSeparator();
 
         switch(hittable->material->type) {
-          case DIFFUSE: {
-            Diffuse* diffuse = (Diffuse*) material;
+          case MATERIAL_TYPE_DIFFUSE: {
+            MaterialDiffuse* diffuse = (MaterialDiffuse*) material;
 
-            if (igColorEdit3("Albedo", diffuse->albedo.data, 0)) { *reset_camera_framebuffer = true; }
+            bool changed = false;
+            switch (diffuse->albedo->type) {
+              case TEXTURE_TYPE_SOLID_COLOR: changed = gui_edit_path_tracer_texture_solid_color(gui, (TextureSolidColor*) diffuse->albedo); break;
+              case TEXTURE_TYPE_IMAGE: changed = gui_edit_path_tracer_texture_image(gui, (TextureImage*) diffuse->albedo); break;
+            }
+            if (changed) { *reset_camera_framebuffer = true; }
           } break;
-          case METAL: {
+          case MATERIAL_TYPE_METAL: {
             Metal* metal = (Metal*) material;
 
-            if (igColorEdit3("Albedo", metal->albedo.data, 0)) { *reset_camera_framebuffer = true; }
+            bool changed = false;
+            switch (metal->albedo->type) {
+              case TEXTURE_TYPE_SOLID_COLOR: changed = gui_edit_path_tracer_texture_solid_color(gui, (TextureSolidColor*) metal->albedo); break;
+              case TEXTURE_TYPE_IMAGE: changed = gui_edit_path_tracer_texture_image(gui, (TextureImage*) metal->albedo); break;
+            }
+            if (changed) { *reset_camera_framebuffer = true; }
+
             if (igDragFloat("Roughness", &metal->roughness, 0.1f, 0.0f, 1.0f, "%0.2f", 0)) { *reset_camera_framebuffer = true; }
           } break;
-          case GLASS: {
-            Glass* glass = (Glass*) material;
+          case MATERIAL_TYPE_GLASS: {
+            MaterialGlass* glass = (MaterialGlass*) material;
 
-            if (igColorEdit3("Albedo", glass->albedo.data, 0)) { *reset_camera_framebuffer = true; }
+            bool changed = false;
+            switch (glass->albedo->type) {
+              case TEXTURE_TYPE_SOLID_COLOR: *reset_camera_framebuffer = gui_edit_path_tracer_texture_solid_color(gui, (TextureSolidColor*) glass->albedo); break;
+              case TEXTURE_TYPE_IMAGE: changed = gui_edit_path_tracer_texture_image(gui, (TextureImage*) glass->albedo); break;
+            }
+            if (changed) { *reset_camera_framebuffer = true; }
+
             if (igDragFloat("Refraction Index", &glass->refraction_index, 0.1f, 0.0f, 50.0f, "%0.2f", 0)) { *reset_camera_framebuffer = true; }
             if (igDragFloat("Roughness", &glass->roughness, 0.1f, 0.0f, 1.0f, "%0.2f", 0)) { *reset_camera_framebuffer = true; }
           } break;
-          case EMISSIVE: {
-            Emissive* emissive = (Emissive*) material;
+          case MATERIAL_TYPE_EMISSIVE: {
+            MaterialEmissive* emissive = (MaterialEmissive*) material;
 
-            if (igColorEdit3("Albedo", emissive->albedo.data, 0)) { *reset_camera_framebuffer = true; }
+            bool changed = false;
+            switch (emissive->albedo->type) {
+              case TEXTURE_TYPE_SOLID_COLOR: *reset_camera_framebuffer = gui_edit_path_tracer_texture_solid_color(gui, (TextureSolidColor*) emissive->albedo); break;
+              case TEXTURE_TYPE_IMAGE: changed = gui_edit_path_tracer_texture_image(gui, (TextureImage*) emissive->albedo); break;
+            }
+            if (changed) { *reset_camera_framebuffer = true; }
+
             if (igDragFloat("Emission Strength", &emissive->emission_strength, 0.1f, 0.0f, 1000.0f, "%0.2f", 0)) { *reset_camera_framebuffer = true; }
           } break;
         }
@@ -329,12 +380,12 @@ static void gui_update_window_world(GUI* gui, World* world, Camera* camera, bool
     igSameLine(0, gui->window->imgui_context->Style.ItemInnerSpacing.x);
 
     if (igSmallButton("Add")) {
-      Material* default_material = (Material*) material_diffuse_create((Color) { 0.75f, 0.75f, 0.75f });
+      Material* default_material = (Material*) material_diffuse_create((Texture*) texture_solid_color_create((Color) { 0.75f, 0.75f, 0.75f }));
 
       Hittable* new_hittable;
       switch (gui->add_type) {
-        case SPHERE: new_hittable = (Hittable*) hittable_sphere_create((Vector3) { 0.0f, 0.0f, 0.0f }, 1.0f, default_material); break;
-        case PLANE: new_hittable = (Hittable*) hittable_plane_create((Vector3) { 0.0f, 0.0f, 0.0f }, (Vector3) { 0.0f, 1.0f, 0.0f}, (Vector2) { 10.0f, 10.0f }, default_material); break;
+        case HITTABLE_TYPE_SPHERE: new_hittable = (Hittable*) hittable_sphere_create((Vector3) { 0.0f, 0.0f, 0.0f }, 1.0f, default_material); break;
+        case HITTABLE_TYPE_PLANE: new_hittable = (Hittable*) hittable_plane_create((Vector3) { 0.0f, 0.0f, 0.0f }, (Vector3) { 0.0f, 1.0f, 0.0f}, (Vector2) { 10.0f, 10.0f }, default_material); break;
       }
 
       world_add(world, new_hittable);
@@ -343,6 +394,26 @@ static void gui_update_window_world(GUI* gui, World* world, Camera* camera, bool
   igEnd();
 
   if (remove_hittable) { world_remove(world, remove_hittable_index); }
+}
+
+static bool gui_edit_path_tracer_texture_solid_color(GUI* gui, TextureSolidColor* solid_color) {
+  return igColorEdit3("Albedo", solid_color->color.data, 0);
+}
+
+static bool gui_edit_path_tracer_texture_image(GUI* gui, TextureImage* image) {
+  if (igSmallButton("Change Image")) {
+    nfdfilteritem_t filter_items[1] = { { "Image File", "jpg,png" } };
+    const char* path = file_dialog_get_open(filter_items, sizeof(filter_items) / sizeof(nfdfilteritem_t));
+    if (!path) {
+      return false;
+    }
+
+    texture_image_change_image(image, path);
+
+    return true;
+  }
+
+  return false;
 }
 
 void gui_render(GUI* gui) {

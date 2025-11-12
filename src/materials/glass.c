@@ -4,25 +4,29 @@
 #include <stdio.h>
 #include <math.h>
 
+#include "textures/texture.h"
 #include "types/color.h"
 #include "materials/material.h"
 #include "math/vector3.h"
 #include "types/rayhit.h"
 #include "types/base_types.h"
+#include "textures/solid_color.h"
 #include "random.h"
 
-static Color get_color(Material* material);
+static Color get_color(Material* material, Vector2 uv_coordinates);
 static Vector3 get_direction(Material* material, RayHit rayhit, u64* state);
 static void destroy(Material* material);
 
-Glass* material_glass_create(Color albedo, f32 refraction_index, f32 roughness) {
-  Glass* glass = (Glass*) malloc(sizeof(Glass));
+static f32 reflectance(f32 cosine, f32 refraction_ratio);
+
+MaterialGlass* material_glass_create(Texture* albedo, f32 refraction_index, f32 roughness) {
+  MaterialGlass* glass = (MaterialGlass*) malloc(sizeof(MaterialGlass));
   if (!glass) {
     fprintf(stderr, "[ERROR] [MATERIAL] [GLASS] Failed to allocate memory for glass material!\n");
     return NULL;
   }
 
-  glass->material = (Material) { GLASS, get_color, get_direction, destroy };
+  glass->material = (Material) { MATERIAL_TYPE_GLASS, get_color, get_direction, destroy };
   glass->albedo = albedo;
   glass->refraction_index = refraction_index;
   glass->roughness = roughness;
@@ -30,25 +34,23 @@ Glass* material_glass_create(Color albedo, f32 refraction_index, f32 roughness) 
   return glass;
 }
 
-inline static Color get_color(Material* material) {
-  return material_glass_get_color((Glass*) material);
+inline static Color get_color(Material* material, Vector2 uv_coordinates) {
+  return material_glass_get_color((MaterialGlass*) material, uv_coordinates);
 }
 
 inline static Vector3 get_direction(Material* material, RayHit rayhit, u64* state) {
-  return material_glass_get_direction((Glass*) material, rayhit, state);
+  return material_glass_get_direction((MaterialGlass*) material, rayhit, state);
 }
 
 inline static void destroy(Material* material) {
-  material_glass_destroy((Glass*) material);
+  material_glass_destroy((MaterialGlass*) material);
 }
 
-inline Color material_glass_get_color(Glass* glass) {
-  return glass->albedo;
+inline Color material_glass_get_color(MaterialGlass* glass, Vector2 uv_coordinates) {
+  return glass->albedo->get_color(glass->albedo, uv_coordinates);
 }
 
-static f32 reflectance(f32 cosine, f32 refraction_ratio);
-
-Vector3 material_glass_get_direction(Glass *glass, RayHit rayhit, u64 *state) {
+Vector3 material_glass_get_direction(MaterialGlass *glass, RayHit rayhit, u64 *state) {
   Vector3 direction;
 
   f32 refraction_ratio = rayhit.inside ? (1.0f / glass->refraction_index) : glass->refraction_index;
@@ -75,6 +77,47 @@ static f32 reflectance(f32 cosine, f32 refraction_ratio) {
   return reflectance + (1.0f - reflectance) * powf(1.0f - cosine, 5.0f);
 }
 
-inline void material_glass_destroy(Glass* glass) {
+cJSON* material_glass_json_create(MaterialGlass* glass) {
+  cJSON* glass_json = cJSON_CreateObject();
+  if (!glass_json) { goto error; }
+
+  if (!cJSON_AddNumberToObject(glass_json, "type", MATERIAL_TYPE_GLASS)) { goto error; }
+
+  cJSON* albedo_json = texture_json_create(glass->albedo);
+  if (!albedo_json) { goto error; }
+
+  if (!cJSON_AddItemToObject(glass_json, "albedo", albedo_json)) { goto error; }
+  if (!cJSON_AddNumberToObject(glass_json, "roughness", glass->roughness)) { goto error; }
+  if (!cJSON_AddNumberToObject(glass_json, "refraction-index", glass->refraction_index)) { goto error; }
+
+  return glass_json;
+
+error:
+  fprintf(stderr, "[ERROR] [MATERIAL] [GLASS] Failed to create JSON object!\n");
+  cJSON_Delete(glass_json);
+  return NULL;
+}
+
+MaterialGlass* material_glass_json_parse(cJSON* glass_json) {
+  cJSON* albedo_json = cJSON_GetObjectItemCaseSensitive(glass_json, "albedo");
+  if (!albedo_json) { goto error; }
+
+  Texture* texture = texture_json_parse(albedo_json);
+  if (!texture) { goto error; }
+
+  cJSON* roughness = cJSON_GetObjectItemCaseSensitive(glass_json, "roughness");
+  if (!roughness) { goto error; }
+
+  cJSON* refraction_index = cJSON_GetObjectItemCaseSensitive(glass_json, "refraction-index");
+  if (!roughness) { goto error; }
+
+  return material_glass_create(texture, cJSON_GetNumberValue(refraction_index), cJSON_GetNumberValue(roughness));
+
+error:
+  fprintf(stderr, "[ERROR] [MATERIAL] [GLASS] Failed to parse JSON object!\n");
+  return NULL;
+}
+
+inline void material_glass_destroy(MaterialGlass* glass) {
   free(glass);
 }

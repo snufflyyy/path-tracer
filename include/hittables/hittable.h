@@ -8,8 +8,8 @@
 #define HITTABLE_IDENTIFER_MAX_LENGTH 16
 
 typedef enum HittableType {
-  SPHERE,
-  PLANE
+  HITTABLE_TYPE_SPHERE,
+  HITTABLE_TYPE_PLANE
 } HittableType;
 
 typedef struct Hittable {

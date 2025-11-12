@@ -129,7 +129,7 @@ inline void window_imgui_end_frame() {
 
 inline void window_imgui_render() {
   igRender();
-  ImGui_ImplOpenGL3_RenderDrawData(igGetDrawData()); 
+  ImGui_ImplOpenGL3_RenderDrawData(igGetDrawData());
 }
 
 void window_destroy(Window *window) {

@@ -19,24 +19,6 @@
 #include "math/vector3.h"
 #include "utils/file.h"
 
-static cJSON* world_json_create_sphere(Sphere* sphere);
-static Sphere* world_json_parse_sphere(cJSON* sphere_json);
-
-static cJSON* world_json_create_plane(Plane* plane);
-static Plane* world_json_parse_plane(cJSON* plane_json);
-
-static cJSON* world_json_create_material_diffuse(Diffuse* diffuse);
-static Diffuse* world_json_parse_material_diffuse(cJSON* diffuse_json);
-
-static cJSON* world_json_create_material_metal(Metal* metal);
-static Metal* world_json_parse_material_metal(cJSON* metal_json);
-
-static cJSON* world_json_create_material_glass(Glass* glass);
-static Glass* world_json_parse_material_glass(cJSON* glass_json);
-
-static cJSON* world_json_create_material_emissive(Emissive* emissive);
-static Emissive* world_json_parse_material_emissive(cJSON* emissive_json);
-
 World world_create() {
   World world = {0};
 
@@ -92,100 +74,74 @@ void world_remove(World* world, usize index) {
 }
 
 void world_scene_save(World* world, Camera* camera, const char* filename) {
-  cJSON* scene = cJSON_CreateObject();
-  if (!scene) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] Failed to create scene JSON object!\n");
-    return;
-  }
+  cJSON* scene_json = cJSON_CreateObject();
+  if (!scene_json) { goto error; }
 
   cJSON* camera_json = cJSON_CreateObject();
-  if (!camera_json) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [CAMERA] Failed to create camera JSON object!\n");
-    cJSON_Delete(scene);
-    return;
-  }
+  if (!camera_json) { goto error; }
 
-  cJSON* camera_position = cJSON_AddArrayToObject(camera_json, "position");
-  if (!camera_position) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [CAMERA] Failed to add position JSON array to camera JSON object!\n");
-    cJSON_Delete(scene);
-    return;
-  }
+  cJSON* camera_position_json = cJSON_AddArrayToObject(camera_json, "position");
+  if (!camera_position_json) { goto error; }
 
   for (usize i = 0; i < 3; i++) {
     cJSON* element = cJSON_CreateNumber(camera->position.data[i]);
-    if (!element) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] [CAMERA] Failed to create position element JSON number!\n");
-      cJSON_Delete(scene);
-      return;
-    }
+    if (!element) { goto error; }
 
-    if (!cJSON_AddItemToArray(camera_position, element)) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] [CAMERA] Failed to add position element JSON number to position JSON array!\n");
-      cJSON_Delete(scene);
-      return;
-    }
+    if (!cJSON_AddItemToArray(camera_position_json, element)) { goto error; }
   }
 
-  cJSON_AddItemToObject(scene, "camera", camera_json);
+  cJSON_AddItemToObject(scene_json, "camera", camera_json);
 
-  cJSON* hittables = cJSON_AddArrayToObject(scene, "hittables");
-  if (!hittables) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] Failed to create hittables JSON array!\n");
-    cJSON_Delete(scene);
-    return;
-  }
+  cJSON* hittables_json = cJSON_AddArrayToObject(scene_json, "hittables");
+  if (!hittables_json) { goto error; }
 
   for (usize i = 0; i < world->hittables_count; i++) {
-    cJSON* hittable;
+    cJSON* hittable_json;
     switch (world->hittables[i]->type) {
-      case SPHERE: hittable = world_json_create_sphere((Sphere*) world->hittables[i]); break;
-      case PLANE: hittable = world_json_create_plane((Plane*) world->hittables[i]); break;
+      case HITTABLE_TYPE_SPHERE: hittable_json = hittable_sphere_json_create((HittableSphere*) world->hittables[i]); break;
+      case HITTABLE_TYPE_PLANE: hittable_json = hittable_plane_json_create((HittablePlane*) world->hittables[i]); break;
     }
 
-    if (!hittable) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] Failed to create hittable (index: %lu) JSON object!\n", i);
-      cJSON_Delete(scene);
-      return;
-    }
+    if (!hittable_json) { goto error; }
 
-    cJSON* material;
+    cJSON* material_json;
     switch (world->hittables[i]->material->type) {
-      case DIFFUSE: material = world_json_create_material_diffuse((Diffuse*) world->hittables[i]->material); break;
-      case METAL: material = world_json_create_material_metal((Metal*) world->hittables[i]->material); break;
-      case GLASS: material = world_json_create_material_glass((Glass*) world->hittables[i]->material); break;
-      case EMISSIVE: material = world_json_create_material_emissive((Emissive*) world->hittables[i]->material); break;
+      case MATERIAL_TYPE_DIFFUSE: material_json = material_diffuse_json_create((MaterialDiffuse*) world->hittables[i]->material); break;
+      case MATERIAL_TYPE_METAL: material_json = material_metal_json_create((Metal*) world->hittables[i]->material); break;
+      case MATERIAL_TYPE_GLASS: material_json = material_glass_json_create((MaterialGlass*) world->hittables[i]->material); break;
+      case MATERIAL_TYPE_EMISSIVE: material_json = material_emissive_json_create((MaterialEmissive*) world->hittables[i]->material); break;
     }
 
-    if (!material) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] Failed to create hittable (index: %lu) material JSON object!\n", i);
-      cJSON_Delete(scene);
-      return;
-    }
+    if (!material_json) { goto error; }
 
-    cJSON_AddItemToObject(hittable, "material", material);
-    cJSON_AddItemToArray(hittables, hittable);
+    cJSON_AddItemToObject(hittable_json, "material", material_json);
+    cJSON_AddItemToArray(hittables_json, hittable_json);
   }
 
-  const char* string = cJSON_Print(scene);
+  const char* string = cJSON_Print(scene_json);
   file_write_string(filename, string);
   free((void*) string);
 
-  cJSON_Delete(scene);
+  cJSON_Delete(scene_json);
+
+  return;
+
+error:
+  fprintf(stderr, "[ERROR] [WORLD] [SCENE] Failed to save scene!\n");
+  //cJSON_Delete(scene_json);
 }
 
 void world_scene_load(World* world, Camera* camera, const char* filename) {
   const char* string = file_to_string(filename);
   if (!string) {
-    fprintf(stderr, "[ERROR] [WORLD] [SCENE] Failed to open file: %s when loading scene!\n", filename);
+    fprintf(stderr, "[ERROR] [WORLD] [SCENE] Failed to load file: %s!\n", filename);
     return;
   }
 
-  cJSON* scene = cJSON_Parse(string);
-  if (!scene) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] Failed to create scene JSON object!\n");
+  cJSON* scene_json = cJSON_Parse(string);
+  if (!scene_json) {
     free((void*) string);
-    return;
+    goto error;
   }
 
   free((void*) string);
@@ -195,498 +151,60 @@ void world_scene_load(World* world, Camera* camera, const char* filename) {
     *world = world_create();
   }
 
-  cJSON* camera_json = cJSON_GetObjectItemCaseSensitive(scene, "camera");
-  if (!camera || !cJSON_IsObject(camera_json)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] Failed to get camera JSON object!\n");
-    cJSON_Delete(scene);
-    return;
-  }
+  cJSON* camera_json = cJSON_GetObjectItemCaseSensitive(scene_json, "camera");
+  if (!camera || !cJSON_IsObject(camera_json)) { goto error; }
 
   cJSON* camera_position = cJSON_GetObjectItemCaseSensitive(camera_json, "position");
-  if (!camera_position || !cJSON_IsArray(camera_position)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] Failed to get camera position JSON array!\n");
-    cJSON_Delete(scene);
-    return;
-  }
+  if (!camera_position || !cJSON_IsArray(camera_position)) { goto error; }
 
   camera->position = (Vector3) { cJSON_GetNumberValue(cJSON_GetArrayItem(camera_position, 0)), cJSON_GetNumberValue(cJSON_GetArrayItem(camera_position, 1)), cJSON_GetNumberValue(cJSON_GetArrayItem(camera_position, 2)) };
 
-  cJSON* hittables = cJSON_GetObjectItemCaseSensitive(scene, "hittables");
-  if (!hittables || !cJSON_IsArray(hittables)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] Failed to get hittables JSON array!\n");
-    cJSON_Delete(scene);
-    return;
-  }
+  cJSON* hittables_json = cJSON_GetObjectItemCaseSensitive(scene_json, "hittables");
+  if (!hittables_json || !cJSON_IsArray(hittables_json)) { goto error; }
 
-  s32 hittables_count = cJSON_GetArraySize(hittables);
+  s32 hittables_count = cJSON_GetArraySize(hittables_json);
   for (usize i = 0; i < hittables_count; i++) {
-    cJSON* hittable = cJSON_GetArrayItem(hittables, i);
-    if (!hittable) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] Failed to get hittable (index: %lu)!\n", i);
-      cJSON_Delete(scene);
-      return;
-    }
+    cJSON* hittable_json = cJSON_GetArrayItem(hittables_json, i);
+    if (!hittable_json) { goto error; }
 
-    cJSON* type = cJSON_GetObjectItemCaseSensitive(hittable, "type");
-    if (!type || !cJSON_IsNumber(type)) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] Failed to get hittable's type JSON number (enum)!\n");
-      cJSON_Delete(scene);
-      return;
-    }
+    cJSON* type_json = cJSON_GetObjectItemCaseSensitive(hittable_json, "type");
+    if (!type_json || !cJSON_IsNumber(type_json)) { goto error; }
 
     Hittable* new_hittable;
-    switch ((HittableType) cJSON_GetNumberValue(type)) {
-      case SPHERE: new_hittable = (Hittable*) world_json_parse_sphere(hittable); break;
-      case PLANE: new_hittable = (Hittable*) world_json_parse_plane(hittable); break;
+    switch ((HittableType) cJSON_GetNumberValue(type_json)) {
+      case HITTABLE_TYPE_SPHERE: new_hittable = (Hittable*) hittable_sphere_json_parse(hittable_json); break;
+      case HITTABLE_TYPE_PLANE: new_hittable = (Hittable*) hittable_plane_json_parse(hittable_json); break;
     }
 
-    if (!new_hittable) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] Failed to get create new hittable from JSON object!\n");
-      cJSON_Delete(scene);
-      return;
-    }
+    if (!new_hittable) { goto error; }
 
-    cJSON* material_json = cJSON_GetObjectItemCaseSensitive(hittable, "material");
-    if (!material_json || !cJSON_IsObject(material_json)) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] Failed to get material from hittable JSON object!\n");
-      cJSON_Delete(scene);
-      return;
-    }
+    cJSON* material_json = cJSON_GetObjectItemCaseSensitive(hittable_json, "material");
+    if (!material_json || !cJSON_IsObject(material_json)) { goto error; }
 
-    cJSON* material_type = cJSON_GetObjectItemCaseSensitive(material_json, "type");
-    if (!material_type || !cJSON_IsNumber(material_type)) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] Failed to get hittable material's type JSON number (enum)!\n");
-      cJSON_Delete(scene);
-      return;
-    }
+    cJSON* material_type_json = cJSON_GetObjectItemCaseSensitive(material_json, "type");
+    if (!material_type_json || !cJSON_IsNumber(material_type_json)) { goto error; }
 
     Material* material;
-    switch ((MaterialType) cJSON_GetNumberValue(material_type)) {
-      case DIFFUSE: material = (Material*) world_json_parse_material_diffuse(material_json); break;
-      case METAL: material = (Material*) world_json_parse_material_metal(material_json); break;
-      case GLASS: material = (Material*) world_json_parse_material_glass(material_json); break;
-      case EMISSIVE: material = (Material*) world_json_parse_material_emissive(material_json); break;
+    switch ((MaterialType) cJSON_GetNumberValue(material_type_json)) {
+      case MATERIAL_TYPE_DIFFUSE: material = (Material*) material_diffuse_json_parse(material_json); break;
+      case MATERIAL_TYPE_METAL: material = (Material*) material_metal_json_parse(material_json); break;
+      case MATERIAL_TYPE_GLASS: material = (Material*) material_glass_json_parse(material_json); break;
+      case MATERIAL_TYPE_EMISSIVE: material = (Material*) material_emissive_json_parse(material_json); break;
     }
 
-    if (!material) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] Failed to create new hittable's material from JSON object!\n");
-      cJSON_Delete(scene);
-      return;
-    }
+    if (!material) { goto error; }
 
     new_hittable->material = material;
     world_add(world, new_hittable);
   }
 
-  cJSON_Delete(scene);
-}
+  cJSON_Delete(scene_json);
 
-static cJSON* world_json_create_sphere(Sphere* sphere) {
-  cJSON* hittable = cJSON_CreateObject();
-  if (!hittable) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [SPHERE] Failed to create sphere hittable JSON object!\n");
-    return NULL;
-  }
+  return;
 
-  if (!cJSON_AddNumberToObject(hittable, "type", SPHERE)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [SPHERE] Failed to add type JSON number (enum) to sphere JSON object!\n");
-    cJSON_Delete(hittable);
-    return NULL;
-  }
-
-  cJSON* position = cJSON_AddArrayToObject(hittable, "position");
-  if (!position) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [SPHERE] Failed to add position JSON array to sphere JSON object!\n");
-    cJSON_Delete(hittable);
-    return NULL;
-  }
-
-  for (usize i = 0; i < 3; i++) {
-    cJSON* element = cJSON_CreateNumber(sphere->position.data[i]);
-    if (!element) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] [SPHERE] Failed to create position element JSON number!\n");
-      cJSON_Delete(hittable);
-      return NULL;
-    }
-
-    if (!cJSON_AddItemToArray(position, element)) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] [SPHERE] Failed to add position element JSON number to position JSON array!\n");
-      cJSON_Delete(hittable);
-      return NULL;
-    }
-  }
-
-  if (!cJSON_AddNumberToObject(hittable, "radius", sphere->radius)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [SPHERE] Failed to add radius JSON number to sphere JSON object!\n");
-    cJSON_Delete(hittable);
-    return NULL;
-  }
-
-  return hittable;
-}
-
-static Sphere* world_json_parse_sphere(cJSON* sphere_json) {
-  cJSON* position = cJSON_GetObjectItemCaseSensitive(sphere_json, "position");
-  if (!position || !cJSON_IsArray(position)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [SPHERE] Failed to parse position JSON array from sphere JSON object!\n");
-    return NULL;
-  }
-
-  cJSON* radius = cJSON_GetObjectItemCaseSensitive(sphere_json, "radius");
-  if (!radius || !cJSON_IsNumber(radius)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [SPHERE] Failed to parse radius JSON number from sphere JSON object!\n");
-    return NULL;
-  }
-
-  Vector3 new_position = { cJSON_GetNumberValue(cJSON_GetArrayItem(position, 0)), cJSON_GetNumberValue(cJSON_GetArrayItem(position, 1)), cJSON_GetNumberValue(cJSON_GetArrayItem(position, 2)) };
-  return hittable_sphere_create(new_position, cJSON_GetNumberValue(radius), NULL);
-}
-
-static cJSON* world_json_create_plane(Plane* plane) {
-  cJSON* hittable = cJSON_CreateObject();
-  if (!hittable) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [PLANE] Failed to create plane hittable JSON object!\n");
-    return NULL;
-  }
-
-  if (!cJSON_AddNumberToObject(hittable, "type", PLANE)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [PLANE] Failed to add type JSON number (enum) to plane JSON object!\n");
-    cJSON_Delete(hittable);
-    return NULL;
-  }
-
-  cJSON* position = cJSON_AddArrayToObject(hittable, "position");
-  if (!position) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [PLANE] Failed to add position JSON array to plane JSON object!\n");
-    cJSON_Delete(hittable);
-    return NULL;
-  }
-
-  for (usize i = 0; i < 3; i++) {
-    cJSON* element = cJSON_CreateNumber(plane->position.data[i]);
-    if (!element) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] [PLANE] Failed to create position element JSON number!\n");
-      cJSON_Delete(hittable);
-      return NULL;
-    }
-
-    if (!cJSON_AddItemToArray(position, element)) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] [PLANE] Failed to add position element JSON number to position JSON array!\n");
-      cJSON_Delete(hittable);
-      return NULL;
-    }
-  }
-
-  cJSON* normal = cJSON_AddArrayToObject(hittable, "normal");
-  if (!normal) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [PLANE] Failed to add normal JSON array to plane JSON object!\n");
-    cJSON_Delete(hittable);
-    return NULL;
-  }
-
-  for (usize i = 0; i < 3; i++) {
-    cJSON* element = cJSON_CreateNumber(plane->normal.data[i]);
-    if (!element) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] [PLANE] Failed to create normal element JSON number!\n");
-      cJSON_Delete(hittable);
-      return NULL;
-    }
-
-    if (!cJSON_AddItemToArray(normal, element)) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] [PLANE] Failed to add normal element JSON number to normal JSON array!\n");
-      cJSON_Delete(hittable);
-      return NULL;
-    }
-  }
-
-  cJSON* size = cJSON_AddArrayToObject(hittable, "size");
-  if (!size) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [PLANE] Failed to add size JSON array to plane JSON object!\n");
-    cJSON_Delete(hittable);
-    return NULL;
-  }
-
-  for (usize i = 0; i < 2; i++) {
-    cJSON* element = cJSON_CreateNumber(plane->size.data[i]);
-    if (!element) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] [PLANE] Failed to create size element JSON number!\n");
-      cJSON_Delete(hittable);
-      return NULL;
-    }
-
-    if (!cJSON_AddItemToArray(size, element)) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] [PLANE] Failed to add size element JSON number to size JSON array!\n");
-      cJSON_Delete(hittable);
-      return NULL;
-    }
-  }
-
-  return hittable;
-}
-
-static Plane* world_json_parse_plane(cJSON* plane_json) {
-  cJSON* position = cJSON_GetObjectItemCaseSensitive(plane_json, "position");
-  if (!position || !cJSON_IsArray(position)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [PLANE] Failed to parse position JSON array from plane JSON object!\n");
-    return NULL;
-  }
-
-  cJSON* normal = cJSON_GetObjectItemCaseSensitive(plane_json, "normal");
-  if (!normal || !cJSON_IsArray(normal)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [PLANE] Failed to parse normal JSON array from plane JSON object!\n");
-    return NULL;
-  }
-
-  cJSON* size = cJSON_GetObjectItemCaseSensitive(plane_json, "size");
-  if (!size || !cJSON_IsArray(size)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [PLANE] Failed to parse size JSON array from plane JSON object!\n");
-    return NULL;
-  }
-
-  Vector3 new_position = { cJSON_GetNumberValue(cJSON_GetArrayItem(position, 0)), cJSON_GetNumberValue(cJSON_GetArrayItem(position, 1)), cJSON_GetNumberValue(cJSON_GetArrayItem(position, 2)) };
-  Vector3 new_normal = { cJSON_GetNumberValue(cJSON_GetArrayItem(normal, 0)), cJSON_GetNumberValue(cJSON_GetArrayItem(normal, 1)), cJSON_GetNumberValue(cJSON_GetArrayItem(normal, 2)) };
-  Vector2 new_size = { cJSON_GetNumberValue(cJSON_GetArrayItem(size, 0)), cJSON_GetNumberValue(cJSON_GetArrayItem(size, 1)) };
-  return hittable_plane_create(new_position, new_normal, new_size, NULL);
-}
-
-static cJSON* world_json_create_material_diffuse(Diffuse* diffuse) {
-  cJSON* material = cJSON_CreateObject();
-  if (!material) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [DIFFUSE] Failed to create diffuse material JSON object!");
-    return NULL;
-  }
-
-  if (!cJSON_AddNumberToObject(material, "type", DIFFUSE)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [DIFFUSE] Failed to add type JSON number (enum) to diffuse material JSON object!\n");
-    cJSON_Delete(material);
-    return NULL;
-  }
-
-  cJSON* albedo = cJSON_AddArrayToObject(material, "albedo");
-  if (!albedo) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [DIFFUSE] Failed to add albedo JSON array to diffuse material JSON object!\n");
-    cJSON_Delete(material);
-    return NULL;
-  }
-
-  for (usize i = 0; i < 3; i++) {
-    cJSON* element = cJSON_CreateNumber(diffuse->albedo.data[i]);
-    if (!element) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [DIFFUSE] Failed to create albedo element JSON number!\n");
-      cJSON_Delete(material);
-      return NULL;
-    }
-
-    if (!cJSON_AddItemToArray(albedo, element)) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [DIFFUSE] Failed to add albedo element JSON number to albedo JSON array!\n");
-      cJSON_Delete(material);
-      return NULL;
-    }
-  }
-
-  return material;
-}
-
-static Diffuse* world_json_parse_material_diffuse(cJSON* diffuse_json) {
-  cJSON* albedo = cJSON_GetObjectItemCaseSensitive(diffuse_json, "albedo");
-  if (!albedo) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [DIFFUSE] Failed to get albedo JSON array!\n");
-    return NULL;
-  }
-
-  return material_diffuse_create((Color) { cJSON_GetNumberValue(cJSON_GetArrayItem(albedo, 0)), cJSON_GetNumberValue(cJSON_GetArrayItem(albedo, 1)), cJSON_GetNumberValue(cJSON_GetArrayItem(albedo, 2)) });
-}
-
-static cJSON* world_json_create_material_metal(Metal* metal) {
-  cJSON* material = cJSON_CreateObject();
-  if (!material) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [METAL] Failed to create metal material JSON object!");
-    return NULL;
-  }
-
-  if (!cJSON_AddNumberToObject(material, "type", METAL)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [METAL] Failed to add type JSON number (enum) to metal material JSON object!\n");
-    cJSON_Delete(material);
-    return NULL;
-  }
-
-  cJSON* albedo = cJSON_AddArrayToObject(material, "albedo");
-  if (!albedo) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [METAL] Failed to add albedo JSON array to metal material JSON object!\n");
-    cJSON_Delete(material);
-    return NULL;
-  }
-
-  for (usize i = 0; i < 3; i++) {
-    cJSON* element = cJSON_CreateNumber(metal->albedo.data[i]);
-    if (!element) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [METAL] Failed to create albedo element JSON number!\n");
-      cJSON_Delete(material);
-      return NULL;
-    }
-
-    if (!cJSON_AddItemToArray(albedo, element)) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [METAL] Failed to add albedo element JSON number to albedo JSON array!\n");
-      cJSON_Delete(material);
-      return NULL;
-    }
-  }
-
-  if (!cJSON_AddNumberToObject(material, "roughness", metal->roughness)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [METAL] Failed to add roughness JSON number to metal material JSON object!\n");
-    cJSON_Delete(material);
-    return NULL;
-  }
-
-  return material;
-}
-
-static Metal* world_json_parse_material_metal(cJSON* metal_json) {
-  cJSON* albedo = cJSON_GetObjectItemCaseSensitive(metal_json, "albedo");
-  if (!albedo) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [METAL] Failed to get albedo JSON array!\n");
-    return NULL;
-  }
-
-  cJSON* roughness = cJSON_GetObjectItemCaseSensitive(metal_json, "roughness");
-  if (!roughness) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [METAL] Failed to get roughness JSON number!\n");
-    return NULL;
-  }
-
-  return material_metal_create((Color) { cJSON_GetNumberValue(cJSON_GetArrayItem(albedo, 0)), cJSON_GetNumberValue(cJSON_GetArrayItem(albedo, 1)), cJSON_GetNumberValue(cJSON_GetArrayItem(albedo, 2)) }, cJSON_GetNumberValue(roughness));
-}
-
-static cJSON* world_json_create_material_glass(Glass* glass) {
-  cJSON* material = cJSON_CreateObject();
-  if (!material) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [GLASS] Failed to create glass material JSON object!");
-    return NULL;
-  }
-
-  if (!cJSON_AddNumberToObject(material, "type", GLASS)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [GLASS] Failed to add type JSON number (enum) to glass material JSON object!\n");
-    cJSON_Delete(material);
-    return NULL;
-  }
-
-  cJSON* albedo = cJSON_AddArrayToObject(material, "albedo");
-  if (!albedo) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [GLASS] Failed to add albedo JSON array to glass material JSON object!\n");
-    cJSON_Delete(material);
-    return NULL;
-  }
-
-  for (usize i = 0; i < 3; i++) {
-    cJSON* element = cJSON_CreateNumber(glass->albedo.data[i]);
-    if (!element) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [GLASS] Failed to create albedo element JSON number!\n");
-      cJSON_Delete(material);
-      return NULL;
-    }
-
-    if (!cJSON_AddItemToArray(albedo, element)) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [GLASS] Failed to add albedo element JSON number to albedo JSON array!\n");
-      cJSON_Delete(material);
-      return NULL;
-    }
-  }
-
-  if (!cJSON_AddNumberToObject(material, "roughness", glass->roughness)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [GLASS] Failed to add roughness JSON number to glass material JSON object!\n");
-    cJSON_Delete(material);
-    return NULL;
-  }
-
-  if (!cJSON_AddNumberToObject(material, "refraction-index", glass->refraction_index)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [GLASS] Failed to add refraction index JSON number to glass material JSON object!\n");
-    cJSON_Delete(material);
-    return NULL;
-  }
-
-  return material;
-}
-
-static Glass* world_json_parse_material_glass(cJSON* glass_json) {
-  cJSON* albedo = cJSON_GetObjectItemCaseSensitive(glass_json, "albedo");
-  if (!albedo) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [METAL] Failed to get albedo JSON array!\n");
-    return NULL;
-  }
-
-  cJSON* roughness = cJSON_GetObjectItemCaseSensitive(glass_json, "roughness");
-  if (!roughness) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [METAL] Failed to get roughness JSON number!\n");
-    return NULL;
-  }
-
-  cJSON* refraction_index = cJSON_GetObjectItemCaseSensitive(glass_json, "refraction-index");
-  if (!roughness) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [GLASS] Failed to get refraction index JSON number!\n");
-    return NULL;
-  }
-
-  return material_glass_create((Color) { cJSON_GetNumberValue(cJSON_GetArrayItem(albedo, 0)), cJSON_GetNumberValue(cJSON_GetArrayItem(albedo, 1)), cJSON_GetNumberValue(cJSON_GetArrayItem(albedo, 2)) }, cJSON_GetNumberValue(refraction_index), cJSON_GetNumberValue(roughness));
-}
-
-static cJSON* world_json_create_material_emissive(Emissive* emissive) {
-  cJSON* material = cJSON_CreateObject();
-  if (!material) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [EMISSIVE] Failed to create emissive material JSON object!");
-    return NULL;
-  }
-
-  if (!cJSON_AddNumberToObject(material, "type", EMISSIVE)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [EMISSIVE] Failed to add type JSON number (enum) to emissive material JSON object!\n");
-    cJSON_Delete(material);
-    return NULL;
-  }
-
-  cJSON* albedo = cJSON_AddArrayToObject(material, "albedo");
-  if (!albedo) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [EMISSIVE] Failed to add albedo JSON array to emissive material JSON object!\n");
-    cJSON_Delete(material);
-    return NULL;
-  }
-
-  for (usize i = 0; i < 3; i++) {
-    cJSON* element = cJSON_CreateNumber(emissive->albedo.data[i]);
-    if (!element) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [EMISSIVE] Failed to create albedo element JSON number!\n");
-      cJSON_Delete(material);
-      return NULL;
-    }
-
-    if (!cJSON_AddItemToArray(albedo, element)) {
-      fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [EMISSIVE] Failed to add albedo element JSON number to albedo JSON array!\n");
-      cJSON_Delete(material);
-      return NULL;
-    }
-  }
-
-  if (!cJSON_AddNumberToObject(material, "emission-strength", emissive->emission_strength)) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [EMISSIVE] Failed to add emission strength JSON number to emissive material JSON object!\n");
-    cJSON_Delete(material);
-    return NULL;
-  }
-
-  return material;
-}
-
-static Emissive* world_json_parse_material_emissive(cJSON* emissive_json) {
-  cJSON* albedo = cJSON_GetObjectItemCaseSensitive(emissive_json, "albedo");
-  if (!albedo) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [EMISSIVE] Failed to get albedo JSON array!\n");
-    return NULL;
-  }
-
-  cJSON* emission_strength = cJSON_GetObjectItemCaseSensitive(emissive_json, "emission-strength");
-  if (!emission_strength) {
-    fprintf(stderr, "[ERROR] [WORLD] [JSON] [MATERIAL] [METAL] Failed to get roughness JSON number!\n");
-    return NULL;
-  }
-
-  return material_emissive_create((Color) { cJSON_GetNumberValue(cJSON_GetArrayItem(albedo, 0)), cJSON_GetNumberValue(cJSON_GetArrayItem(albedo, 1)), cJSON_GetNumberValue(cJSON_GetArrayItem(albedo, 2)) }, cJSON_GetNumberValue(emission_strength));
+error:
+  fprintf(stderr, "[ERROR] [WORLD] [JSON] Failed to load scene!\n");
+  cJSON_Delete(scene_json);
 }
 
 void world_destroy(World* world) {

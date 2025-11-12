@@ -53,6 +53,10 @@ add_executable(
   src/math/vector3.c
   src/math/ray.c
 
+  src/textures/texture.c
+  src/textures/solid_color.c
+  src/textures/image.c
+
   src/materials/diffuse.c
   src/materials/metal.c
   src/materials/glass.c
@@ -73,6 +77,7 @@ include_directories(
   include
 
   external/stb_image_write/include
+  external/stb_image/include
 )
 
 target_compile_definitions(${PROJECT_NAME} PUBLIC -DCIMGUI_USE_OPENGL3 -DCIMGUI_USE_GLFW)

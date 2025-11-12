@@ -17,7 +17,7 @@
 
 typedef struct GUI {
   Window* window;
-  Texture texture;
+  GLTexture texture;
   ColorRGB* framebufferRGB;
 
   bool show_camera_window;

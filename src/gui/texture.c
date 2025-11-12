@@ -5,7 +5,7 @@
 #include "types/color.h"
 #include "types/base_types.h"
 
-Texture texture_create() {
+GLTexture texture_create() {
   GLuint texture;
   glGenTextures(1, &texture);
 
@@ -18,7 +18,7 @@ Texture texture_create() {
   return texture;
 }
 
-inline void texture_bind(Texture texture) {
+inline void texture_bind(GLTexture texture) {
   glBindTexture(GL_TEXTURE_2D, texture);
 }
 
@@ -26,10 +26,10 @@ inline void texture_unbind() {
   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-inline void texture_set_colorRGB_buffer(Texture texture, ColorRGB* buffer, u32 width, u32 height) {
+inline void texture_set_colorRGB_buffer(GLTexture texture, ColorRGB* buffer, u32 width, u32 height) {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, buffer);
 }
 
-inline void texture_destroy(Texture texture) {
+inline void texture_destroy(GLTexture texture) {
   glDeleteTextures(1, &texture);
 }

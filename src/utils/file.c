@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "nfd.h"
 #include "types/base_types.h"
 
 const char* file_to_string(const char* path) {
@@ -44,4 +45,53 @@ void file_write_string(const char* path, const char* string) {
   }
 
   fclose(file);
+}
+
+const char* file_dialog_get_open(nfdfilteritem_t* filter_items, u32 filter_items_count) {
+  if (NFD_Init() == NFD_ERROR) {
+    fprintf(stderr, "[ERROR] [FILE] [DIALOG] [OPEN] Failed to initalize native file dialogs!\n");
+    return NULL;
+  }
+
+  nfdu8char_t *open_path;
+  nfdresult_t result = NFD_OpenDialog(&open_path, filter_items, filter_items_count, NULL);
+  if (result == NFD_ERROR) {
+    fprintf(stderr, "[ERROR] [FILE] [DIALOG] [OPEN] Failed to get path!\n");
+    NFD_Quit();
+    return NULL;
+  }
+  NFD_Quit();
+
+  if (result == NFD_CANCEL) {
+    return "";
+  }
+
+  return (const char*) open_path;
+}
+
+const char* file_dialog_get_save(nfdfilteritem_t* filter_items, u32 filter_items_count) {
+  if (NFD_Init() == NFD_ERROR) {
+    fprintf(stderr, "[ERROR] [FILE] [DIALOG] [SAVE] Failed to initalize native file dialogs!\n");
+    return NULL;
+  }
+
+  nfdu8char_t *save_path;
+  nfdresult_t result = NFD_SaveDialogU8(&save_path, filter_items, filter_items_count, NULL, NULL);
+  if (result == NFD_ERROR) {
+    fprintf(stderr, "[ERROR] [FILE] [DIALOG] [SAVE] Failed to get path!\n");
+    NFD_Quit();
+    return NULL;
+  }
+
+  NFD_Quit();
+
+  if (result == NFD_CANCEL) {
+    return "";
+  }
+
+  return (const char*) save_path;
+}
+
+inline void file_dialog_string_destroy(const char* string) {
+  NFD_FreePathU8((nfdu8char_t*) string);
 }

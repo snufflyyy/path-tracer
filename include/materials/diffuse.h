@@ -1,16 +1,23 @@
 #pragma once
 
+#include <cJSON.h>
+
+#include "textures/texture.h"
 #include "materials/material.h"
 #include "types/color.h"
 #include "types/rayhit.h"
 
-typedef struct Diffuse {
+typedef struct MaterialDiffuse {
   Material material;
 
-  Color albedo;
-} Diffuse;
+  Texture* albedo;
+} MaterialDiffuse;
 
-Diffuse* material_diffuse_create(Color albedo);
-Color material_diffuse_get_color(Diffuse* diffuse);
-Vector3 material_diffuse_get_direction(Diffuse* diffuse, RayHit rayhit, u64* state);
-void material_diffuse_destroy(Diffuse* diffuse);
+MaterialDiffuse* material_diffuse_create(Texture* texture);
+Color material_diffuse_get_color(MaterialDiffuse* diffuse, Vector2 uv_coordinates);
+Vector3 material_diffuse_get_direction(MaterialDiffuse* diffuse, RayHit rayhit, u64* state);
+
+cJSON* material_diffuse_json_create(MaterialDiffuse* diffuse);
+MaterialDiffuse* material_diffuse_json_parse(cJSON* diffuse_json);
+
+void material_diffuse_destroy(MaterialDiffuse* diffuse);

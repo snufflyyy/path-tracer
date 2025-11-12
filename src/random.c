@@ -50,12 +50,12 @@ Vector3 random_vector3_in_hemisphere(u64* state, Vector3 normal) {
 
 Vector3 random_hittable_position(u64* state, Hittable* hittable) {
   switch (hittable->type) {
-    case SPHERE: {
-      Sphere* sphere = (Sphere*) hittable;
-      return vector3_add(sphere->position, vector3_scale(random_vector3_unit_vector(state), sphere->radius)); 
+    case HITTABLE_TYPE_SPHERE: {
+      HittableSphere* sphere = (HittableSphere*) hittable;
+      return vector3_add(sphere->position, vector3_scale(random_vector3_unit_vector(state), sphere->radius));
     } break;
-    case PLANE: {
-      Plane* plane = (Plane*) hittable;
+    case HITTABLE_TYPE_PLANE: {
+      HittablePlane* plane = (HittablePlane*) hittable;
       return vector3_add(plane->position, (Vector3) {  });
     } break;
   }
