@@ -1,4 +1,5 @@
 #include "gui/gui.h"
+#include "gui/texture.h"
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -7,10 +8,9 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
 #include <cimgui.h>
 #include <cimgui_impl.h>
-
-#include <nfd.h>
 
 #include "hittables/hittable.h"
 #include "image.h"
@@ -36,9 +36,6 @@ static void gui_update_window_export_warning(GUI* gui, Camera* camera, World* wo
 static void gui_update_window_render(GUI* gui, Camera* camera);
 static void gui_update_window_camera(GUI* gui, Camera* camera, World* world, bool* reset_camera_framebuffer);
 static void gui_update_window_world(GUI* gui, World* world, Camera* camera, bool* reset_camera_framebuffer);
-
-static bool gui_edit_path_tracer_texture_solid_color(GUI* gui, TextureSolidColor* solid_color);
-static bool gui_edit_path_tracer_texture_image(GUI* gui, TextureImage* image);
 
 GUI gui_create(u32 width, u32 height) {
   GUI gui;
@@ -110,29 +107,22 @@ static void gui_update_window_export_warning(GUI* gui, Camera* camera, World* wo
     igText("Are you sure you want to continue?");
 
     if (igSmallButton("Yes")) {
-      NFD_Init();
       nfdfilteritem_t filter_items[1];
       switch (gui->export_image_type) {
         case HDR: filter_items[0] = (nfdfilteritem_t) { "HDR", "hdr" }; break;
         case JPG: filter_items[0] = (nfdfilteritem_t) { "JPG", "jpg" }; break;
       }
 
-      nfdchar_t *save_path;
-      if (NFD_SaveDialog(&save_path, filter_items, 1, NULL, "output") != NFD_OKAY) {
-        fprintf(stderr, "[ERROR] [EXPORT] Failed to get image save path!\n");
-        NFD_Quit();
-        return;
-      }
+      const char* path = file_dialog_get_save(filter_items, 1);
 
       camera_render_export(camera, world);
 
       switch (gui->export_image_type) {
-        case HDR: image_create_hdr(save_path, camera); break;
-        case JPG: image_create_jpg(save_path, camera); break;
+        case HDR: image_create_hdr(path, camera); break;
+        case JPG: image_create_jpg(path, camera); break;
       }
-      NFD_FreePath(save_path);
-      NFD_Quit();
 
+      file_dialog_string_destroy(path);
       gui->show_export_warning_window = false;
     }
 
@@ -149,6 +139,7 @@ static void gui_update_window_render(GUI* gui, Camera* camera) {
       gui->framebufferRGB[i] = tonemapping(camera->tonemapping_operator, color_scale(camera->framebuffer[i], 1.0f / camera->sample_count));
     }
 
+    texture_bind(gui->texture);
     texture_set_colorRGB_buffer(gui->texture, gui->framebufferRGB, camera->width, camera->height);
   }
 
@@ -224,32 +215,20 @@ static void gui_update_window_world(GUI* gui, World* world, Camera* camera, bool
 
     if (igSmallButton("Save")) {
       NFD_Init();
-      nfdfilteritem_t filter_items[1] = { { "Scene file", "scene" } };
-      nfdchar_t *save_path;
-      if (NFD_SaveDialog(&save_path, filter_items, 1, NULL, "untitled") == NFD_ERROR) {
-        fprintf(stderr, "[ERROR] [SCENE] Failed to get scene save path!\n");
-        NFD_Quit();
-      }
+      nfdfilteritem_t filter_items[] = { { "Scene file", "scene" } };
+      const char* path = file_dialog_get_save(filter_items, (sizeof(filter_items) / sizeof(nfdfilteritem_t)));
 
-      world_scene_save(world, camera, save_path);
-      NFD_FreePath(save_path);
-      NFD_Quit();
+      world_scene_save(world, camera, path);
+      file_dialog_string_destroy(path);
     }
 
     igSameLine(0, gui->window->imgui_context->Style.ItemInnerSpacing.x);
 
     if (igSmallButton("Load")) {
-      NFD_Init();
-      nfdfilteritem_t filter_items[1] = { { "Scene file", "scene" } };
-      nfdchar_t *out_path;
-      if (NFD_OpenDialog(&out_path, filter_items, 1, NULL) == NFD_ERROR) {
-        fprintf(stderr, "[ERROR] [SCENE] Failed to get scene load path!\n");
-        NFD_Quit();
-      }
-
-      world_scene_load(world, camera, out_path);
-      NFD_FreePath(out_path);
-      NFD_Quit();
+      nfdfilteritem_t filter_items[] = { { "Scene file", "scene" } };
+      const char* path = file_dialog_get_open(filter_items, (sizeof(filter_items) / sizeof(nfdfilteritem_t)));
+      world_scene_load(world, camera, path);
+      file_dialog_string_destroy(path);
 
       *reset_camera_framebuffer = true;
     }
@@ -326,8 +305,8 @@ static void gui_update_window_world(GUI* gui, World* world, Camera* camera, bool
 
             bool changed = false;
             switch (diffuse->albedo->type) {
-              case TEXTURE_TYPE_SOLID_COLOR: changed = gui_edit_path_tracer_texture_solid_color(gui, (TextureSolidColor*) diffuse->albedo); break;
-              case TEXTURE_TYPE_IMAGE: changed = gui_edit_path_tracer_texture_image(gui, (TextureImage*) diffuse->albedo); break;
+              case TEXTURE_TYPE_SOLID_COLOR: changed = texture_solid_color_gui_edit((TextureSolidColor*) diffuse->albedo); break;
+              case TEXTURE_TYPE_IMAGE: changed = texture_image_gui_edit((TextureImage*) diffuse->albedo); break;
             }
             if (changed) { *reset_camera_framebuffer = true; }
           } break;
@@ -336,8 +315,8 @@ static void gui_update_window_world(GUI* gui, World* world, Camera* camera, bool
 
             bool changed = false;
             switch (metal->albedo->type) {
-              case TEXTURE_TYPE_SOLID_COLOR: changed = gui_edit_path_tracer_texture_solid_color(gui, (TextureSolidColor*) metal->albedo); break;
-              case TEXTURE_TYPE_IMAGE: changed = gui_edit_path_tracer_texture_image(gui, (TextureImage*) metal->albedo); break;
+              case TEXTURE_TYPE_SOLID_COLOR: changed = texture_solid_color_gui_edit((TextureSolidColor*) metal->albedo); break;
+              case TEXTURE_TYPE_IMAGE: changed = texture_image_gui_edit((TextureImage*) metal->albedo); break;
             }
             if (changed) { *reset_camera_framebuffer = true; }
 
@@ -348,8 +327,8 @@ static void gui_update_window_world(GUI* gui, World* world, Camera* camera, bool
 
             bool changed = false;
             switch (glass->albedo->type) {
-              case TEXTURE_TYPE_SOLID_COLOR: *reset_camera_framebuffer = gui_edit_path_tracer_texture_solid_color(gui, (TextureSolidColor*) glass->albedo); break;
-              case TEXTURE_TYPE_IMAGE: changed = gui_edit_path_tracer_texture_image(gui, (TextureImage*) glass->albedo); break;
+              case TEXTURE_TYPE_SOLID_COLOR: *reset_camera_framebuffer = texture_solid_color_gui_edit((TextureSolidColor*) glass->albedo); break;
+              case TEXTURE_TYPE_IMAGE: changed = texture_image_gui_edit((TextureImage*) glass->albedo); break;
             }
             if (changed) { *reset_camera_framebuffer = true; }
 
@@ -361,8 +340,8 @@ static void gui_update_window_world(GUI* gui, World* world, Camera* camera, bool
 
             bool changed = false;
             switch (emissive->albedo->type) {
-              case TEXTURE_TYPE_SOLID_COLOR: *reset_camera_framebuffer = gui_edit_path_tracer_texture_solid_color(gui, (TextureSolidColor*) emissive->albedo); break;
-              case TEXTURE_TYPE_IMAGE: changed = gui_edit_path_tracer_texture_image(gui, (TextureImage*) emissive->albedo); break;
+              case TEXTURE_TYPE_SOLID_COLOR: *reset_camera_framebuffer = texture_solid_color_gui_edit((TextureSolidColor*) emissive->albedo); break;
+              case TEXTURE_TYPE_IMAGE: changed = texture_image_gui_edit((TextureImage*) emissive->albedo); break;
             }
             if (changed) { *reset_camera_framebuffer = true; }
 
@@ -394,26 +373,6 @@ static void gui_update_window_world(GUI* gui, World* world, Camera* camera, bool
   igEnd();
 
   if (remove_hittable) { world_remove(world, remove_hittable_index); }
-}
-
-static bool gui_edit_path_tracer_texture_solid_color(GUI* gui, TextureSolidColor* solid_color) {
-  return igColorEdit3("Albedo", solid_color->color.data, 0);
-}
-
-static bool gui_edit_path_tracer_texture_image(GUI* gui, TextureImage* image) {
-  if (igSmallButton("Change Image")) {
-    nfdfilteritem_t filter_items[1] = { { "Image File", "jpg,png" } };
-    const char* path = file_dialog_get_open(filter_items, sizeof(filter_items) / sizeof(nfdfilteritem_t));
-    if (!path) {
-      return false;
-    }
-
-    texture_image_change_image(image, path);
-
-    return true;
-  }
-
-  return false;
 }
 
 void gui_render(GUI* gui) {

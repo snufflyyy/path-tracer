@@ -4,6 +4,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
+#include <cimgui.h>
+#include <cimgui_impl.h>
+
 static Color get_color(Texture* texture, Vector2 uv_coordinates);
 static void destroy(Texture* texture);
 
@@ -65,6 +69,10 @@ TextureSolidColor* texture_solid_color_json_parse(cJSON* solid_color_json) {
 error:
   fprintf(stderr, "[ERROR] [TEXTURE] [SOLID COLOR] Failed parse JSON object!\n");
   return NULL;
+}
+
+bool texture_solid_color_gui_edit(TextureSolidColor* solid_color) {
+  return igColorEdit3("Albedo", solid_color->color.data, 0);
 }
 
 void texture_solid_color_destroy(TextureSolidColor* solid_color) {

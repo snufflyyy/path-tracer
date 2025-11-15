@@ -6,7 +6,7 @@
 #include "types/base_types.h"
 
 GLTexture texture_create() {
-  GLuint texture;
+  GLTexture texture;
   glGenTextures(1, &texture);
 
   glActiveTexture(GL_TEXTURE0);

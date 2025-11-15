@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
-project(PathTracer LANGUAGES C CXX OBJC)
+project(PathTracer)
+if (APPLE)
+  enable_language(OBJC OBJCXX)
+endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
