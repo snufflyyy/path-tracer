@@ -4,7 +4,7 @@ My amazing CPU (and GPU one day... maybe) path tracer that is written in c with 
 
 ## Screenshots
 
-todo
+![Brick Earth](screenshots/Chip8Tetris.png)
 
 ## Final Renders
 
